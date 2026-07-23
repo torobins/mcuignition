@@ -21,6 +21,14 @@
 const uint8_t pulsePin[NUM_CYL]     = {2, 3, 4};
 const float   phaseOffsetDeg[NUM_CYL] = {0.0, 120.0, 240.0};
 
+// Heartbeat LED: toggles once per revolution, independent of the pulse
+// outputs above, so it's actually visible (unlike the 200us edge pulses).
+// Blink rate = rpm/120 Hz. Driven on both the Mega's built-in LED (pin 13,
+// no wiring needed) and an external pin for a bigger/brighter bench LED.
+const uint8_t statusLedPinBuiltin  = 13;
+const uint8_t statusLedPinExternal = 6;
+bool          statusLedState       = false;
+
 /* ---- tunables ---- */
 float         twinGapDeg    = 30.0;   // trailing twin offset from leading edge
 unsigned long pulseWidthUs  = 200;    // width of each simulated edge pulse
@@ -69,6 +77,10 @@ void scheduleRevolution(){
     events[i * 2]         = {lead, i};
     events[i * 2 + 1]     = {trail, i};
   }
+
+  statusLedState = !statusLedState;
+  digitalWrite(statusLedPinBuiltin, statusLedState);
+  digitalWrite(statusLedPinExternal, statusLedState);
   // simple insertion sort, 6 elements
   for (uint8_t i = 1; i < NUM_CYL * 2; i++){
     Edge key = events[i];
@@ -85,6 +97,10 @@ void setup(){
     pinMode(pulsePin[i], OUTPUT);
     digitalWrite(pulsePin[i], LOW);
   }
+  pinMode(statusLedPinBuiltin, OUTPUT);
+  pinMode(statusLedPinExternal, OUTPUT);
+  digitalWrite(statusLedPinBuiltin, LOW);
+  digitalWrite(statusLedPinExternal, LOW);
   randomSeed(analogRead(A0));
   revStartUs = micros();
   lastRampUs = micros();
@@ -101,6 +117,9 @@ void handleSerial(){
       case 'i': running = true;  targetRpm = idleRpm;  break;
       case 's': running = false; targetRpm = 0; currentRpm = 0;
                 for (uint8_t i = 0; i < NUM_CYL; i++){ digitalWrite(pulsePin[i], LOW); pulseEndTime[i]=0; }
+                statusLedState = false;
+                digitalWrite(statusLedPinBuiltin, LOW);
+                digitalWrite(statusLedPinExternal, LOW);
                 break;
       case 'j': jitterEnabled = !jitterEnabled;
                 Serial.print(F("jitter ")); Serial.println(jitterEnabled ? F("ON") : F("OFF"));
