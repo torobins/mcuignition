@@ -163,7 +163,7 @@ void loop(){
   }
 
   if (nextEventIdx >= NUM_CYL * 2){
-    revStartUs = events[0].timeUs;   // anchor to cylinder-1 leading edge, avoids drift
+    revStartUs += currentPeriodUs;   // advance exactly one revolution (events[0] is always at +0 offset, so it can't be used as the anchor)
     scheduleRevolution();
   }
 }
