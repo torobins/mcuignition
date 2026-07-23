@@ -113,8 +113,14 @@ void setup(){
 void handleSerial(){
   while (Serial.available()){
     switch (Serial.read()){
-      case 'c': running = true;  targetRpm = crankRpm; break;
-      case 'i': running = true;  targetRpm = idleRpm;  break;
+      case 'c': targetRpm = crankRpm;
+                if (!running){ revStartUs = micros(); scheduleRevolution(); }
+                running = true;
+                break;
+      case 'i': targetRpm = idleRpm;
+                if (!running){ revStartUs = micros(); scheduleRevolution(); }
+                running = true;
+                break;
       case 's': running = false; targetRpm = 0; currentRpm = 0;
                 for (uint8_t i = 0; i < NUM_CYL; i++){ digitalWrite(pulsePin[i], LOW); pulseEndTime[i]=0; }
                 statusLedState = false;
