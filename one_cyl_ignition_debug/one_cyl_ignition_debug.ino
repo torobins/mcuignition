@@ -65,17 +65,28 @@ void wdt_early_disable(void){
                                         // sync between every single legitimate revolution)
 #define CAPTURE_RISING       1        // match conditioner output polarity
 
-/* ---- timebase (/64 @ 16 MHz -> 4 us/tick) ---- */
-#define US_PER_TICK          4UL
+/* ---- timebase (/256 @ 16 MHz -> 16 us/tick) ----
+ * Was /64 (4us/tick); moved to /256 because the edge-to-spark delay (fracTicks)
+ * has to fit in the 16-bit OCR5A/OCR5B compare registers to be scheduled
+ * correctly (see the fracTicks > 0xFFFF check below). At 4us/tick that capped
+ * real minimum speed at ~200rpm; at 16us/tick the same 16-bit register covers
+ * 4x the time range, dropping the floor to ~50rpm. Cost is coarser angular
+ * resolution - 16us/tick is 0.67 degrees at 7000rpm and 0.08 degrees at idle,
+ * both fine for this application. The input capture noise canceller (ICNC5)
+ * is unaffected: it samples at the system clock rate, not the prescaled timer
+ * clock, so its ~250ns response time doesn't change with this setting. */
+#define US_PER_TICK          16UL
 #define US_TO_TICKS(us)      ((uint32_t)(us)/US_PER_TICK)
 #define DWELL_TICKS          US_TO_TICKS(DWELL_US)
-#define PERIOD_MIN_TICKS     US_TO_TICKS(6000UL)     // ~10000 rpm ceiling
-#define PERIOD_MAX_TICKS     US_TO_TICKS(750000UL)   // ~80rpm floor. Safe now that capture
-                                                      // timestamps are 32-bit extended (see
-                                                      // extendCapture()) instead of raw 16-bit
-                                                      // ICR5 differences, which could only ever
-                                                      // represent periods up to ~262ms (~229rpm)
-                                                      // before silently aliasing.
+#define PERIOD_MIN_TICKS     US_TO_TICKS(6000UL)      // ~10000 rpm ceiling
+#define PERIOD_MAX_TICKS     US_TO_TICKS(1100000UL)   // ~54.5rpm floor, chosen with margin
+                                                       // below the true fracTicks-fits-in-16-bits
+                                                       // ceiling (~50rpm) so this measurement gate
+                                                       // and the scheduling gate line up - previously
+                                                       // (at /64) this floor was 80rpm while the
+                                                       // scheduling floor was ~200rpm, so slow
+                                                       // cranking between them measured fine but
+                                                       // could never fire (sat in UNSCHED forever).
 #define FIXED_BLANK_TICKS    US_TO_TICKS(3000UL)   // startup blank floor (tune to magnet width)
 
 /* ---- coil pin (D5 = PE3) ---- */
@@ -105,6 +116,7 @@ volatile uint32_t lastEdgeMicros = 0;
 #define DBG_SYNCFIRST 3   // first good edge, period established, no fire yet
 #define DBG_FIRED     4   // normal scheduled spark
 #define DBG_UNSCHED   5   // period measured fine, but too slow to SCHEDULE (see below)
+#define DBG_RATEJUMP  6   // rejected: interval outside ~0.5x-2x of lastPeriod (dropped/extra edge)
 volatile uint8_t  dbgSeq      = 0;
 volatile uint8_t  dbgEvent    = DBG_NONE;
 volatile uint32_t dbgInterval = 0;
@@ -145,11 +157,25 @@ ISR(TIMER5_CAPT_vect){
     return;   // trailing twin -> discard
   }
 
-  // Plausibility gate: reject noise / impossible speeds.
+  // Plausibility gate: reject noise / impossible speeds (absolute bounds).
   if (interval < PERIOD_MIN_TICKS || interval > PERIOD_MAX_TICKS){
     lastCaptureExt=capExt; synced=false;
     lastEdgeMicros=micros();
     dbgEvent=DBG_REJECTED; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
+    return;
+  }
+
+  // Rate-of-change gate: once synced, real rev-to-rev variation won't exceed
+  // roughly 2x, so a dropped edge (~2x lastPeriod) or a spurious extra edge
+  // (~0.5x or less) gets caught immediately instead of being accepted as a
+  // legitimate speed and used to schedule a wrong-angle spark. (It would
+  // eventually self-correct on the next capture anyway, since that recomputes
+  // fresh from this rejection's own timestamp, but this avoids the one/two
+  // wrong-angle sparks in between.)
+  if (synced && (interval > lastPeriod * 2UL || interval * 2UL < lastPeriod)){
+    lastCaptureExt=capExt; synced=false;
+    lastEdgeMicros=micros();
+    dbgEvent=DBG_RATEJUMP; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
     return;
   }
 
@@ -171,10 +197,11 @@ ISR(TIMER5_CAPT_vect){
   // must itself fit in 16 bits to be scheduled correctly - if it doesn't, the
   // (uint16_t) cast below would silently wrap to a much smaller value and the
   // coil would fire at a bogus, wrong crank angle instead of visibly failing.
-  // With AFTER_EDGE_DEG=315 this caps real minimum speed at ~200rpm - a genuine
-  // hardware ceiling of one 16-bit output-compare register, not a tunable
-  // threshold. Confirmed by bench test: below ~200rpm this is what was causing
-  // MAX_DWELL trips (wrong dwell/spark gap from the wrapped compare targets).
+  // With AFTER_EDGE_DEG=315 this caps real minimum speed at ~50rpm at /256 (was
+  // ~200rpm at /64) - a genuine hardware ceiling of one 16-bit output-compare
+  // register, not a tunable threshold. Confirmed by bench test: below the
+  // ceiling this is what was causing MAX_DWELL trips (wrong dwell/spark gap
+  // from the wrapped compare targets).
   uint32_t period    = interval;
   uint32_t fracTicks = period * AFTER_EDGE_DEG / 360UL;
   if (fracTicks > 0xFFFFUL){
@@ -185,14 +212,24 @@ ISR(TIMER5_CAPT_vect){
   }
   uint16_t sparkAt   = capRaw + (uint16_t)fracTicks;
 
-  TIFR5 = _BV(OCF5A) | _BV(OCF5B);
+  // Write the new compare value(s) BEFORE clearing the flags/enabling the
+  // interrupt, not after. If the flags were cleared first while OCR5A still
+  // held the STALE value from last revolution, and TCNT5 happened to pass
+  // through that stale value in the gap before the new value lands, OCF5A
+  // would set again - then enabling OCIE5A right after fires COMPA
+  // immediately on the stale match, dropping the coil low and eating this
+  // revolution's real spark. Safe to reorder this way because fracTicks is
+  // always at least DWELL_TICKS/etc out, so the new match can't have already
+  // passed by the time we finish writing it.
   OCR5A = sparkAt;
   if (fracTicks > DWELL_TICKS){
     OCR5B = capRaw + (uint16_t)(fracTicks - DWELL_TICKS);
+    TIFR5 = _BV(OCF5A) | _BV(OCF5B);
     TIMSK5 |= _BV(OCIE5A) | _BV(OCIE5B);
   } else {
     COIL_HIGH();
     coilCharging=true; coilHighMicros=micros();
+    TIFR5 = _BV(OCF5A) | _BV(OCF5B);
     TIMSK5 |= _BV(OCIE5A);
   }
 
@@ -230,7 +267,7 @@ void setup(){
   TCCR5B |= _BV(ICES5);
 #endif
   TCCR5B |= _BV(ICNC5);              // noise canceller
-  TCCR5B |= _BV(CS51) | _BV(CS50);   // /64
+  TCCR5B |= _BV(CS52);               // /256
   TCNT5=0;
   TIMSK5 = _BV(ICIE5) | _BV(TOIE5);
   sei();
@@ -261,6 +298,7 @@ void printDebug(){
     case DBG_SYNCFIRST: Serial.print(F("SYNCFIRST")); break;
     case DBG_FIRED:      Serial.print(F("FIRED    ")); break;
     case DBG_UNSCHED:    Serial.print(F("UNSCHED  ")); break;
+    case DBG_RATEJUMP:   Serial.print(F("RATEJUMP ")); break;
     default:             Serial.print(F("NONE     ")); break;
   }
   Serial.print(F(" interval_us=")); Serial.print(interval * US_PER_TICK);
