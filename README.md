@@ -31,6 +31,8 @@ An LED + ~220-330 Ω series resistor tapped straight onto pin 5 (anode to pin 5,
 
 `one_cyl_ignition/one_cyl_ignition.ino` — flash this unmodified to all three boards.
 
+`one_cyl_ignition_debug/one_cyl_ignition_debug.ino` — byte-for-byte the same ignition logic, plus non-blocking serial telemetry (115200 baud) that logs every capture-ISR decision (`BLANKED`/`REJECTED`/`SYNCFIRST`/`FIRED`/`UNSCHED`) and watchdog trip. Use this for bench bring-up or diagnosing sync/timing issues; flash the plain (non-`_debug`) sketch for actual engine use, since it has zero Serial overhead.
+
 Key parameters (top of the file):
 
 | Parameter | Value | Meaning |
@@ -40,7 +42,8 @@ Key parameters (top of the file):
 | `AFTER_EDGE_DEG` | 315° | Derived: edge-to-spark angle |
 | `DWELL_US` | 3000 µs | Coil dwell (D514A) |
 | `MAX_DWELL_US` | 5000 µs | Dwell watchdog ceiling |
-| `STALL_US` | 300000 µs | No-edge timeout → force coil safe |
+| `STALL_US` | 1,500,000 µs | No-edge timeout → force coil safe. Must stay comfortably above the period of the slowest speed the ignition is expected to run at (see `PERIOD_MAX_TICKS` below) or the watchdog force-drops sync between every legitimate slow revolution. |
+| `PERIOD_MAX_TICKS` | ~750,000 µs (~80 rpm) | Slowest period the capture ISR will accept as plausible. Safe at this speed only because capture timestamps are 32-bit extended (see below) — a bare 16-bit register can't represent periods this long. |
 | `FIXED_BLANK_TICKS` | ~3 ms floor | Startup blanking window before a period is learned; tune to measured magnet/twin-pulse width |
 
 The capture ISR keeps the leading edge of each pulse coil's signal and blanks the trailing-edge "twin" that a VR sensor produces per revolution, using `max(fixed floor, 3/8 of last period)`. Spark and dwell are scheduled with Timer5 output compare (`OCR5A`/`OCR5B`), computed as an integer fraction of the last measured revolution period — no floating point in the ISR path.
@@ -48,6 +51,17 @@ The capture ISR keeps the leading edge of each pulse coil's signal and blanks th
 Safety watchdogs in `loop()`:
 - Forces the coil low if dwell exceeds `MAX_DWELL_US` (prevents coil damage from an unfired charge).
 - Forces the coil low and drops sync if no trigger edge arrives within `STALL_US` (engine stopped/stalled).
+
+### Bugs found and fixed during bench bring-up (2026-07-26)
+
+Bench testing with `pulse_simulator` surfaced two real correctness bugs, both confirmed on real hardware before and after the fix:
+
+1. **16-bit capture aliasing at low rpm.** `ICR5` (Timer5's input-capture register) is only 16 bits, so a raw `cap - lastCapture` difference can only represent periods up to ~262 ms (~229 rpm) before silently wrapping to a wrong, too-small value. Below that speed the ignition board would either lock onto a stable but wildly wrong interpretation of the signal (observed firing at a computed "2400–4600 rpm" while the real speed was ~200 rpm) or get stuck in a permanent stall/resync loop producing zero sparks (observed at 100–150 rpm). Fixed by replacing the raw 16-bit capture with a proper 32-bit extended timestamp (`extendCapture()`): the 16-bit register plus a software-tracked overflow count, combined with the standard capture-vs-overflow race handling for this MCU's interrupt priority order. Interval measurement is now correct from ~10,000 rpm down to `PERIOD_MAX_TICKS`'s ~80 rpm floor — verified by a scripted rpm ramp against `pulse_simulator` from 300 rpm down to 100 rpm.
+2. **Unsigned-subtraction race in the `loop()` watchdogs.** Both the stall and max-dwell checks computed `now - lastEdge` (or `now - highAt`) as unsigned `uint32_t` math. A capture interrupt landing in the few-microsecond gap between reading `now` and reading the shared timestamp could make the timestamp *newer* than `now`, underflowing the subtraction to ~4.29 billion and instantly (and falsely) tripping the watchdog — observed causing sync to drop on almost every single revolution. Fixed by casting both differences to `int32_t` before comparing, the standard idiom for handling both real 32-bit timer wraparound and small negative races safely.
+
+### Known hardware limitation: ~200 rpm minimum to fire
+
+Fixing the measurement bug above exposed a separate, real hardware ceiling: `OCR5A`/`OCR5B` are 16-bit compare registers, so the edge-to-spark delay itself (`fracTicks`, currently `AFTER_EDGE_DEG`/360 = 315/360 of a revolution) must fit in 16 bits to be scheduled correctly. Below **~200 rpm**, that delay exceeds the register's range — the firmware explicitly detects this (`fracTicks > 0xFFFF`) and safely declines to fire that revolution rather than silently scheduling a wrong-angle spark. This is a property of using one 16-bit timer with a trigger angle this late in the revolution, not a tunable setting. **Before running on the real engine, confirm the actual starter cranking rpm is reliably above ~200 rpm** — if it isn't, `ADVANCE_BTDC`/the trigger angle would need to move earlier in the revolution to shrink the edge-to-spark delay and buy back schedulable range.
 
 ## Building / flashing
 
@@ -97,7 +111,7 @@ Flash `pulse_simulator.ino` to its own Mega (or any Arduino — no special perip
 
 | Key | Action |
 |---|---|
-| `c` | drop target speed to cranking rpm (default 250) |
+| `c` | drop target speed to cranking rpm (default 300 — raised from 250, which sat exactly on the ignition firmware's old plausibility ceiling with zero margin) |
 | `i` | ramp target speed to idle rpm (default 800) |
 | `s` | stop — simulates stall/kill switch, all outputs go low |
 | `j` | toggle rev-to-rev speed jitter on/off |
@@ -110,7 +124,10 @@ Suggested test sequence: start with `j` off and `c`, confirm each ignition board
 
 ## Roadmap
 
+- **Confirm actual starter cranking rpm is reliably above ~200 rpm** (see "Known hardware limitation" above) — the single most important pre-fuel check given the current trigger angle.
 - Verify `TRIGGER_ANGLE_BTDC` and `ADVANCE_BTDC` per cylinder with a timing light before running on fuel.
 - Confirm all three flywheel magnets sit at the same angle relative to their own cylinder's TDC (assumed, should be checked).
+- Build/verify the VR conditioner circuit against a real sensor — `pulse_simulator` only validates the ignition board's digital capture/blanking/timing logic, not the analog front end (waveform clamping, threshold, twin-pulse gap width). Measure the real twin-pulse gap on a scope and tune `FIXED_BLANK_TICKS`/`TWIN_GAP_DEG` to match.
+- Install the pin-5 pulldown resistor on the actual deployed boards (skipped during bench debug sessions where it doesn't matter, but matters for a running engine where brownouts can occur).
 - Add per-cylinder advance curves for the top-end split (e.g. F 22° / C 19° / R 17° at 5500 rpm) — at that point the three boards stop being identical and each needs its own advance table.
 - Optional future EFI integration (Speeduino) would want a proper multi-tooth crank wheel (e.g. 36-1) rather than deriving all cylinders from a single once-per-rev pulse.

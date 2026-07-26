@@ -33,7 +33,7 @@ bool          statusLedState       = false;
 float         twinGapDeg    = 30.0;   // trailing twin offset from leading edge
 unsigned long pulseWidthUs  = 200;    // width of each simulated edge pulse
 
-unsigned int  crankRpm      = 250;    // typical starter cranking speed
+unsigned int  crankRpm      = 300;    // typical starter cranking speed (was 250, which sat exactly on the ignition firmware's old plausibility ceiling)
 unsigned int  idleRpm       = 800;
 float         rpmRampPerSec = 200.0;  // rpm/sec when ramping toward target
 

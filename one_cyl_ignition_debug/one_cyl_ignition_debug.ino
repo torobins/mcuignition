@@ -1,4 +1,15 @@
-/* one_cyl_ignition.ino — single-cylinder inductive ignition, one Mega2560 per cylinder.
+/* one_cyl_ignition_debug.ino — bench-diagnostic build of one_cyl_ignition.ino.
+ * Identical ignition logic to the production sketch, plus non-blocking serial
+ * telemetry (115200 baud) so the capture ISR's internal decisions can be
+ * observed live: every BLANKED/REJECTED/SYNCFIRST/FIRED/UNSCHED event, plus
+ * watchdog trips, are logged from loop() without ever blocking the ISR path.
+ *
+ * Use this build when bringing up a new board, characterizing a real sensor's
+ * twin-pulse gap, or diagnosing sync/timing issues on the bench (e.g. with
+ * pulse_simulator). Flash the plain one_cyl_ignition.ino for actual engine use
+ * - it has no Serial overhead and is otherwise byte-for-byte the same logic.
+ *
+ * single-cylinder inductive ignition, one Mega2560 per cylinder.
  * Self-sufficient: reads its own VR-conditioner output directly, blanks the
  * trailing-edge twin internally, fires a fixed-timing spark. No external cleaner.
  *
@@ -14,10 +25,6 @@
  * VERIFY the reference angle with a timing light before running on fuel.
  *
  * HARDWARE: 10k from pin 5 to GND at the pin (holds coil OFF through reset/brownout).
- *
- * For live bench diagnostics (serial telemetry of every capture-ISR decision),
- * flash one_cyl_ignition_debug/one_cyl_ignition_debug.ino instead - same logic,
- * plus non-blocking Serial output. This file has no Serial overhead.
  */
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -71,6 +78,20 @@ volatile bool     coilCharging   = false;
 volatile uint32_t coilHighMicros = 0;
 volatile uint32_t lastEdgeMicros = 0;
 
+/* ---- debug telemetry (loop() prints, ISR only does cheap int copies) ---- */
+#define DBG_NONE      0
+#define DBG_BLANKED   1   // trailing twin discarded
+#define DBG_REJECTED  2   // implausible interval
+#define DBG_SYNCFIRST 3   // first good edge, period established, no fire yet
+#define DBG_FIRED     4   // normal scheduled spark
+#define DBG_UNSCHED   5   // period measured fine, but too slow to SCHEDULE (see below)
+volatile uint8_t  dbgSeq      = 0;
+volatile uint8_t  dbgEvent    = DBG_NONE;
+volatile uint32_t dbgInterval = 0;
+volatile uint32_t dbgBlank    = 0;
+volatile uint32_t dbgPeriod   = 0;
+volatile uint32_t dbgFracUs   = 0;
+
 ISR(TIMER5_OVF_vect){ timerHigh++; }
 
 // Combine the raw 16-bit ICR5 capture with the software-extended high word to
@@ -99,12 +120,16 @@ ISR(TIMER5_CAPT_vect){
     uint32_t dyn = (lastPeriod * 3UL) / 8UL;
     if (dyn > blank) blank = dyn;
   }
-  if (interval < blank) return;   // trailing twin -> discard
+  if (interval < blank){
+    dbgEvent=DBG_BLANKED; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
+    return;   // trailing twin -> discard
+  }
 
   // Plausibility gate: reject noise / impossible speeds.
   if (interval < PERIOD_MIN_TICKS || interval > PERIOD_MAX_TICKS){
     lastCaptureExt=capExt; synced=false;
     lastEdgeMicros=micros();
+    dbgEvent=DBG_REJECTED; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
     return;
   }
 
@@ -112,6 +137,7 @@ ISR(TIMER5_CAPT_vect){
   if (!synced){
     lastCaptureExt=capExt; lastPeriod=interval;
     synced=true; lastEdgeMicros=micros();
+    dbgEvent=DBG_SYNCFIRST; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
     return;
   }
 
@@ -127,12 +153,14 @@ ISR(TIMER5_CAPT_vect){
   // coil would fire at a bogus, wrong crank angle instead of visibly failing.
   // With AFTER_EDGE_DEG=315 this caps real minimum speed at ~200rpm - a genuine
   // hardware ceiling of one 16-bit output-compare register, not a tunable
-  // threshold. Below that, safely decline to fire rather than mis-schedule.
+  // threshold. Confirmed by bench test: below ~200rpm this is what was causing
+  // MAX_DWELL trips (wrong dwell/spark gap from the wrapped compare targets).
   uint32_t period    = interval;
   uint32_t fracTicks = period * AFTER_EDGE_DEG / 360UL;
   if (fracTicks > 0xFFFFUL){
     lastCaptureExt=capExt; lastPeriod=period; synced=true;
     lastEdgeMicros=micros();
+    dbgEvent=DBG_UNSCHED; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
     return;
   }
   uint16_t sparkAt   = capRaw + (uint16_t)fracTicks;
@@ -150,6 +178,8 @@ ISR(TIMER5_CAPT_vect){
 
   lastCaptureExt=capExt; lastPeriod=period;
   synced=true; lastEdgeMicros=micros();
+  dbgEvent=DBG_FIRED; dbgInterval=interval; dbgBlank=blank;
+  dbgPeriod=period; dbgFracUs=fracTicks*US_PER_TICK; dbgSeq++;
 }
 
 /* ---- dwell start ---- */
@@ -167,6 +197,9 @@ ISR(TIMER5_COMPA_vect){
 }
 
 void setup(){
+  Serial.begin(115200);
+  Serial.println(F("one_cyl_ignition DEBUG build"));
+
   COIL_DDR |= _BV(COIL_BIT);
   COIL_LOW();                        // idle: not charging
   DDRL &= ~_BV(PL1);                 // ICP5 (pin 48) input
@@ -185,6 +218,39 @@ void setup(){
   lastEdgeMicros = micros();
 }
 
+/* ---- debug telemetry printer (loop-side only, never blocks the ISR) ---- */
+uint8_t lastPrintedSeq = 0;
+void printDebug(){
+  uint8_t  seq, ev; uint32_t interval, blank, period, fracUs;
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
+    seq=dbgSeq; ev=dbgEvent; interval=dbgInterval; blank=dbgBlank;
+    period=dbgPeriod; fracUs=dbgFracUs;
+  }
+  if (seq == lastPrintedSeq) return;
+  uint8_t missed = seq - lastPrintedSeq - 1;
+  lastPrintedSeq = seq;
+
+  Serial.print(F("seq=")); Serial.print(seq);
+  if (missed) { Serial.print(F(" missed=")); Serial.print(missed); }
+  Serial.print(F(" ev="));
+  switch (ev){
+    case DBG_BLANKED:   Serial.print(F("BLANKED  ")); break;
+    case DBG_REJECTED:  Serial.print(F("REJECTED ")); break;
+    case DBG_SYNCFIRST: Serial.print(F("SYNCFIRST")); break;
+    case DBG_FIRED:      Serial.print(F("FIRED    ")); break;
+    case DBG_UNSCHED:    Serial.print(F("UNSCHED  ")); break;
+    default:             Serial.print(F("NONE     ")); break;
+  }
+  Serial.print(F(" interval_us=")); Serial.print(interval * US_PER_TICK);
+  Serial.print(F(" blank_us="));    Serial.print(blank * US_PER_TICK);
+  if (ev == DBG_FIRED){
+    Serial.print(F(" period_us=")); Serial.print(period * US_PER_TICK);
+    Serial.print(F(" rpm="));       Serial.print(60000000UL / (period * US_PER_TICK));
+    Serial.print(F(" edgeToSpark_us=")); Serial.print(fracUs);
+  }
+  Serial.println();
+}
+
 /* ---- safety watchdogs ---- */
 void loop(){
   uint32_t now = micros();
@@ -195,13 +261,23 @@ void loop(){
     COIL_LOW();
     TIMSK5 &= ~_BV(OCIE5A);
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ coilCharging=false; }
+    Serial.println(F("WATCHDOG: MAX_DWELL exceeded, forced coil LOW"));
   }
 
+  static bool stallLatched = false;
   uint32_t lastEdge;
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ lastEdge=lastEdgeMicros; }
   if ((int32_t)(now - lastEdge) > (int32_t)STALL_US){
     COIL_LOW();
     TIMSK5 &= ~(_BV(OCIE5A) | _BV(OCIE5B));
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ coilCharging=false; synced=false; }
+    if (!stallLatched){
+      Serial.print(F("WATCHDOG: STALL gap_us=")); Serial.println((int32_t)(now - lastEdge));
+      stallLatched = true;
+    }
+  } else {
+    stallLatched = false;
   }
+
+  printDebug();
 }
