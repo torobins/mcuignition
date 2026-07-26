@@ -43,13 +43,21 @@ void wdt_early_disable(void){
 
 #define DWELL_US             3000UL   // D514A ~3 ms
 #define MAX_DWELL_US         5000UL   // watchdog: never charge longer than this
-#define STALL_US             1500000UL // no edge this long -> force safe (must exceed the
+#define STALL_US             3000000UL // no edge this long -> force safe (must exceed the
                                         // period of the slowest speed we want to run at:
-                                        // PERIOD_MAX_TICKS below implies an ~80rpm floor,
-                                        // whose period is 750000us, so this needs real
+                                        // PERIOD_MAX_TICKS below implies an ~54.5rpm floor,
+                                        // whose period is 1,100,000us, so this needs real
                                         // margin above that or the watchdog force-drops
-                                        // sync between every single legitimate revolution)
+                                        // sync between every single legitimate revolution.
+                                        // Not currently load-bearing either way - REJECTED
+                                        // already refreshes lastEdgeMicros on every capture,
+                                        // even a too-slow one, so STALL only ever trips on
+                                        // genuine prolonged silence - but keeping real margin
+                                        // here costs nothing and avoids relying on that.)
 #define CAPTURE_RISING       1        // match conditioner output polarity
+#define RATEJUMP_ESCAPE_COUNT 3       // consecutive rate-gate rejections before giving up on
+                                       // lastPeriod and rebuilding sync from scratch - see the
+                                       // escape hatch comment in the rate-of-change gate below
 
 /* ---- timebase (/256 @ 16 MHz -> 16 us/tick) ----
  * Was /64 (4us/tick); moved to /256 because the edge-to-spark delay (fracTicks)
@@ -73,6 +81,10 @@ void wdt_early_disable(void){
                                                        // scheduling floor was ~200rpm, so slow
                                                        // cranking between them measured fine but
                                                        // could never fire (sat in UNSCHED forever).
+                                                       // Note: 68750 ticks exceeds a uint16_t on
+                                                       // purpose - this is only ever compared as a
+                                                       // uint32_t (`interval` is uint32_t), so don't
+                                                       // "fix" this to fit 16 bits later.
 #define FIXED_BLANK_TICKS    US_TO_TICKS(3000UL)   // startup blank floor (tune to magnet width)
 
 /* ---- coil pin (D5 = PE3) ---- */
@@ -94,6 +106,8 @@ volatile bool     synced         = false;
 volatile bool     coilCharging   = false;
 volatile uint32_t coilHighMicros = 0;
 volatile uint32_t lastEdgeMicros = 0;
+volatile uint8_t  rateJumpStreak = 0;   // consecutive rate-gate rejections; see the
+                                        // escape hatch in the rate-of-change gate below
 
 ISR(TIMER5_OVF_vect){ timerHigh++; }
 
@@ -117,27 +131,56 @@ ISR(TIMER5_CAPT_vect){
   uint32_t interval = capExt - lastCaptureExt;
 
   // Blank the trailing twin: ignore any edge closer than max(fixed floor,
-  // 3/8 of last period) to the previous kept edge. Anchor stays on the kept edge.
+  // 1/2 of last period) to the previous kept edge. Anchor stays on the kept edge.
+  // (Was 3/8: raised to exactly match the rate-of-change gate's lower bound
+  // below, so an edge in [3/8,1/2)x lastPeriod doesn't fall through blanking
+  // only to get caught - and drop sync - by the rate gate instead. A silent
+  // blank is the gentler outcome for the same signal. Margin against wrongly
+  // blanking a genuine speed increase is unchanged in practice: that still
+  // needs >2x acceleration in one revolution, the same assumption the rate
+  // gate's upper bound already makes elsewhere.)
   uint32_t blank = FIXED_BLANK_TICKS;
   if (synced){
-    uint32_t dyn = (lastPeriod * 3UL) / 8UL;
+    uint32_t dyn = lastPeriod / 2UL;
     if (dyn > blank) blank = dyn;
   }
   if (interval < blank) return;   // trailing twin -> discard
 
-  // Plausibility gate: reject noise / impossible speeds (absolute bounds),
-  // plus - once synced - a rate-of-change bound: real rev-to-rev variation
-  // won't exceed roughly 2x, so a dropped edge (~2x lastPeriod) or a spurious
-  // extra edge (~0.5x or less) gets caught immediately instead of being
-  // accepted as a legitimate speed and used to schedule a wrong-angle spark.
-  // (It would eventually self-correct on the next capture anyway, since that
-  // recomputes fresh from this rejection's own timestamp, but this avoids the
-  // one/two wrong-angle sparks in between.)
-  bool outOfRange = (interval < PERIOD_MIN_TICKS || interval > PERIOD_MAX_TICKS);
-  bool rateJump    = synced && (interval > lastPeriod * 2UL || interval * 2UL < lastPeriod);
-  if (outOfRange || rateJump){
+  // Plausibility gate: reject noise / impossible speeds (absolute bounds).
+  if (interval < PERIOD_MIN_TICKS || interval > PERIOD_MAX_TICKS){
     lastCaptureExt=capExt; synced=false;
     lastEdgeMicros=micros();
+    return;
+  }
+
+  // Rate-of-change gate: once synced, real rev-to-rev variation won't exceed
+  // roughly 2x, so a dropped edge (~2x lastPeriod) or a spurious extra edge
+  // (~0.5x or less) gets caught immediately instead of being accepted as a
+  // legitimate speed and used to schedule a wrong-angle spark.
+  //
+  // Escape hatch (RATEJUMP_ESCAPE_COUNT consecutive rejections): without this,
+  // a bad lastPeriod can lock out spark PERMANENTLY, not just cost a couple of
+  // revolutions - confirmed by bench test, not theoretical. If the twin ever
+  // gets mistaken for a real edge right after a resync (FIXED_BLANK_TICKS is
+  // a fixed absolute floor, but the twin's absolute gap grows at lower rpm -
+  // reproduced live at 800rpm idle: 30+ seconds of zero fired sparks, stuck
+  // alternating "sync on the twin" then "reject the real edge" forever),
+  // lastPeriod gets poisoned to the tiny twin-gap value. Every subsequent real
+  // edge then looks like a >2x jump from that wrong reference and gets
+  // rejected, which drops sync, and the very next capture (still the twin)
+  // gets mis-synced the same way again - a stable trap with no way out, since
+  // nothing ever gets a chance to relearn the true period. After a few
+  // consecutive rejections, stop trusting lastPeriod and rebuild sync from
+  // this edge instead, exactly like a fresh "!synced" start.
+  if (synced && (interval > lastPeriod * 2UL || interval * 2UL < lastPeriod)){
+    if (++rateJumpStreak < RATEJUMP_ESCAPE_COUNT){
+      lastCaptureExt=capExt; synced=false;
+      lastEdgeMicros=micros();
+      return;
+    }
+    rateJumpStreak = 0;
+    lastCaptureExt=capExt; lastPeriod=interval;
+    synced=true; lastEdgeMicros=micros();
     return;
   }
 
@@ -191,6 +234,7 @@ ISR(TIMER5_CAPT_vect){
     TIMSK5 |= _BV(OCIE5A);
   }
 
+  rateJumpStreak = 0;
   lastCaptureExt=capExt; lastPeriod=period;
   synced=true; lastEdgeMicros=micros();
 }
