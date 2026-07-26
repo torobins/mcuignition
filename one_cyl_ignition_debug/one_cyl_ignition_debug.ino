@@ -28,7 +28,27 @@
  */
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/wdt.h>
 #include <util/atomic.h>
+
+/* ---- watchdog: recovers a hung loop() (e.g. coil stuck charging forever) ----
+ * MUST disable the WDT this early (.init3, before any C runtime init/bss zeroing)
+ * or a WDT-triggered reset can trap the board in a boot loop: the stock Mega
+ * bootloader doesn't clear MCUSR/disable the WDT on entry, so if the WDT is
+ * still counting down from before reset, it can fire again mid-bootloader,
+ * before this sketch ever gets a chance to run and take control of it.
+ *
+ * Timeout is longer here (250ms) than in the production sketch (15ms) because
+ * this build's loop() does blocking Serial.print calls - at high event rates
+ * (see README, roughly >2000-3000rpm) those can stall for a few ms waiting on
+ * the TX buffer, and a tight WDT would falsely reset mid-bench-test instead of
+ * only catching genuine hangs. This build never runs on a fueled engine, so
+ * the slower worst-case recovery here is an acceptable trade. */
+void wdt_early_disable(void) __attribute__((naked, used, section(".init3")));
+void wdt_early_disable(void){
+  MCUSR = 0;
+  wdt_disable();
+}
 
 /* ---- config ---- */
 #define TRIGGER_ANGLE_BTDC   330      // leading edge 30 ATDC = 330 BTDC of next TDC
@@ -216,6 +236,8 @@ void setup(){
   sei();
 
   lastEdgeMicros = micros();
+
+  wdt_enable(WDTO_250MS);
 }
 
 /* ---- debug telemetry printer (loop-side only, never blocks the ISR) ---- */
@@ -253,6 +275,7 @@ void printDebug(){
 
 /* ---- safety watchdogs ---- */
 void loop(){
+  wdt_reset();
   uint32_t now = micros();
 
   bool charging; uint32_t highAt;
