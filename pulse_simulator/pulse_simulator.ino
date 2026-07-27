@@ -14,7 +14,8 @@
  *         Common ground between simulator and every ignition board is required.
  *
  * SERIAL (115200): c=crank rpm, i=idle rpm, s=stop, j=toggle jitter,
- *                   +/- = nudge target rpm 50, p = print status
+ *                   +/- = nudge target rpm 50, p = print status,
+ *                   d=drop next cyl0 leading edge, x=inject spurious cyl0 edge
  */
 
 #define NUM_CYL 3
@@ -40,6 +41,19 @@ float         rpmRampPerSec = 200.0;  // rpm/sec when ramping toward target
 bool          jitterEnabled = true;
 float         jitterPercent = 8.0;    // +/- % random speed variation per rev
 
+/* One-shot fault injection (see 'd' and 'x'). Both fire on the next
+ * revolution and disarm themselves, so each keypress produces exactly one
+ * fault - which is what the ignition firmware's gates are written against. */
+bool  dropNextLead   = false;   // suppress cyl 0's leading edge for one revolution
+bool  injectNextEdge = false;   // add one spurious cyl 0 edge for one revolution
+float injectAtDeg    = 90.0;    // where the spurious edge lands, degrees after cyl 0's lead
+                                 // (90deg = 0.25x the period, below the rate gate's 0.5x lower
+                                 // bound and expected to be rejected. Note a spurious edge
+                                 // landing between roughly 0.5x-1.5x of the period will be
+                                 // ACCEPTED by design - a once-per-revolution trigger has no
+                                 // way to distinguish that from a real edge, and no firmware
+                                 // change can fix it.)
+
 /* ---- runtime state ---- */
 float         targetRpm  = crankRpm;
 float         currentRpm = crankRpm;
@@ -50,8 +64,9 @@ unsigned long revStartUs;
 unsigned long lastRampUs;
 unsigned long pulseEndTime[NUM_CYL] = {0, 0, 0};
 
-struct Edge { unsigned long timeUs; uint8_t cyl; };
-Edge   events[NUM_CYL * 2];
+struct Edge { unsigned long timeUs; uint8_t cyl; bool emit; };
+Edge   events[NUM_CYL * 2 + 1];      // +1 slot for an injected spurious edge
+uint8_t eventCount = NUM_CYL * 2;
 uint8_t nextEventIdx = 0;
 
 void computePeriod(){
@@ -74,15 +89,31 @@ void scheduleRevolution(){
   for (uint8_t i = 0; i < NUM_CYL; i++){
     unsigned long lead    = revStartUs + (unsigned long)(phaseOffsetDeg[i] / 360.0 * currentPeriodUs);
     unsigned long trail   = revStartUs + (unsigned long)((phaseOffsetDeg[i] + twinGapDeg) / 360.0 * currentPeriodUs);
-    events[i * 2]         = {lead, i};
-    events[i * 2 + 1]     = {trail, i};
+    events[i * 2]         = {lead, i, true};
+    events[i * 2 + 1]     = {trail, i, true};
+  }
+
+  eventCount = NUM_CYL * 2;
+  for (uint8_t i = 0; i < eventCount; i++) events[i].emit = true;
+
+  if (dropNextLead){
+    events[0].emit = false;          // cyl 0 leading edge, pre-sort index
+    dropNextLead = false;
+    Serial.println(F("INJECT: dropping cyl0 leading edge this revolution"));
+  }
+  if (injectNextEdge){
+    unsigned long t = revStartUs + (unsigned long)(injectAtDeg / 360.0 * currentPeriodUs);
+    events[eventCount++] = {t, 0, true};
+    injectNextEdge = false;
+    Serial.print(F("INJECT: spurious cyl0 edge at ")); Serial.print(injectAtDeg);
+    Serial.println(F(" deg this revolution"));
   }
 
   statusLedState = !statusLedState;
   digitalWrite(statusLedPinBuiltin, statusLedState);
   digitalWrite(statusLedPinExternal, statusLedState);
-  // simple insertion sort, 6 elements
-  for (uint8_t i = 1; i < NUM_CYL * 2; i++){
+  // simple insertion sort, up to 7 elements
+  for (uint8_t i = 1; i < eventCount; i++){
     Edge key = events[i];
     int8_t j = i - 1;
     while (j >= 0 && events[j].timeUs > key.timeUs){ events[j+1] = events[j]; j--; }
@@ -107,7 +138,7 @@ void setup(){
   scheduleRevolution();
 
   Serial.println(F("pulse_simulator ready"));
-  Serial.println(F("c=crank i=idle s=stop j=jitter +/- nudge p=status"));
+  Serial.println(F("c=crank i=idle s=stop j=jitter +/- nudge p=status d=drop x=inject"));
 }
 
 void handleSerial(){
@@ -132,11 +163,19 @@ void handleSerial(){
                 break;
       case '+': targetRpm += 50; break;
       case '-': targetRpm = max(0.0f, targetRpm - 50); break;
+      case 'd': dropNextLead = true;
+                Serial.println(F("armed: drop next cyl0 leading edge"));
+                break;
+      case 'x': injectNextEdge = true;
+                Serial.println(F("armed: inject spurious cyl0 edge"));
+                break;
       case 'p':
         Serial.print(F("target=")); Serial.print(targetRpm);
         Serial.print(F(" current=")); Serial.print(currentRpm);
         Serial.print(F(" periodUs=")); Serial.print(currentPeriodUs);
-        Serial.print(F(" jitter=")); Serial.println(jitterEnabled ? F("ON") : F("OFF"));
+        Serial.print(F(" jitter=")); Serial.print(jitterEnabled ? F("ON") : F("OFF"));
+        Serial.print(F(" drop=")); Serial.print(dropNextLead ? F("ARMED") : F("-"));
+        Serial.print(F(" inject=")); Serial.println(injectNextEdge ? F("ARMED") : F("-"));
         break;
     }
   }
@@ -155,14 +194,16 @@ void loop(){
     }
   }
 
-  while (nextEventIdx < NUM_CYL * 2 && (long)(now - events[nextEventIdx].timeUs) >= 0){
-    uint8_t cyl = events[nextEventIdx].cyl;
-    digitalWrite(pulsePin[cyl], HIGH);
-    pulseEndTime[cyl] = now + pulseWidthUs;
+  while (nextEventIdx < eventCount && (long)(now - events[nextEventIdx].timeUs) >= 0){
+    if (events[nextEventIdx].emit){
+      uint8_t cyl = events[nextEventIdx].cyl;
+      digitalWrite(pulsePin[cyl], HIGH);
+      pulseEndTime[cyl] = now + pulseWidthUs;
+    }
     nextEventIdx++;
   }
 
-  if (nextEventIdx >= NUM_CYL * 2){
+  if (nextEventIdx >= eventCount){
     revStartUs += currentPeriodUs;   // advance exactly one revolution (events[0] is always at +0 offset, so it can't be used as the anchor)
     scheduleRevolution();
   }

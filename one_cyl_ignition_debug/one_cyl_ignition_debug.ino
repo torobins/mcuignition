@@ -2,7 +2,8 @@
  * Identical ignition logic and identical safety envelope (same WDT timeout) as
  * the production sketch, plus serial telemetry (115200 baud) so the capture
  * ISR's internal decisions can be observed live: every
- * BLANKED/REJECTED/RATEJUMP/SYNCFIRST/FIRED/UNSCHED event, plus watchdog
+ * BLANKED/REJECTED/RATEJUMP/ESCAPE/SYNCFIRST/SYNCCAND/FIRED/UNSCHED event,
+ * plus watchdog
  * trips, are logged from loop() without ever blocking the ISR path.
  *
  * The telemetry print itself is genuinely non-blocking, not just "usually
@@ -87,6 +88,26 @@ void wdt_early_disable(void){
                                        // lastPeriod and rebuilding sync from scratch - see the
                                        // escape hatch comment in the rate-of-change gate below
 
+/* Two consecutive intervals must agree within +/-25% before sync is declared.
+ * An L->T->L alternation can never satisfy this (the twin gap and the real
+ * period differ by ~12x), so the twin can no longer establish lastPeriod. */
+#define SYNC_AGREE_NUM       4        // agreement band: interval*4 > ref*3  AND
+#define SYNC_AGREE_DEN       3        //                 interval*3 < ref*4
+
+/* Rate-of-change bounds, asymmetric on purpose. A dropped edge always makes
+ * the interval LONGER (~2x), never shorter, so the upper bound is tightened
+ * to 1.5x to put clear daylight between the accept band and that signature -
+ * real deceleration won't reach 1.5x in a single revolution. The lower bound
+ * stays loose at 0.5x because a starter spinning up genuinely can halve its
+ * period rev-to-rev during the first few revolutions, and rejecting that
+ * would fight cranking. 0.5x also keeps the lower bound aligned with the
+ * dynamic blanking window (lastPeriod/2) so the same edge can't pass one
+ * and fail the other. */
+#define RATE_MAX_NUM         3        // reject if interval > lastPeriod * 3/2
+#define RATE_MAX_DEN         2
+#define RATE_MIN_NUM         1        // reject if interval < lastPeriod * 1/2
+#define RATE_MIN_DEN         2
+
 /* ---- timebase (/256 @ 16 MHz -> 16 us/tick) ----
  * Was /64 (4us/tick); moved to /256 because the edge-to-spark delay (fracTicks)
  * has to fit in the 16-bit OCR5A/OCR5B compare registers to be scheduled
@@ -136,6 +157,11 @@ volatile uint32_t coilHighMicros = 0;
 volatile uint32_t lastEdgeMicros = 0;
 volatile uint8_t  rateJumpStreak = 0;   // consecutive rate-gate rejections; see the
                                         // escape hatch in the rate-of-change gate below
+volatile uint32_t prevInterval   = 0;   // last accepted raw interval. Doubles as the
+                                        // blanking reference during acquisition (when
+                                        // lastPeriod isn't trustworthy yet) and as the
+                                        // agreement reference for declaring sync.
+volatile bool     twinSeenThisRev = true;  // see the missing-twin gate below
 
 /* ---- debug telemetry (loop() prints, ISR only does cheap int copies) ---- */
 #define DBG_NONE      0
@@ -144,8 +170,10 @@ volatile uint8_t  rateJumpStreak = 0;   // consecutive rate-gate rejections; see
 #define DBG_SYNCFIRST 3   // first good edge, period established, no fire yet
 #define DBG_FIRED     4   // normal scheduled spark
 #define DBG_UNSCHED   5   // period measured fine, but too slow to SCHEDULE (see below)
-#define DBG_RATEJUMP  6   // rejected: interval outside ~0.5x-2x of lastPeriod (dropped/extra edge)
+#define DBG_RATEJUMP  6   // rejected: interval outside ~0.5x-1.5x of lastPeriod (dropped/extra edge)
 #define DBG_ESCAPE    7   // rate-gate escape hatch fired: lastPeriod was stuck wrong, rebuilt sync
+#define DBG_SYNCCAND  8   // acquisition: interval recorded as a candidate, not yet agreeing
+#define DBG_TWINMISS  9   // synced but the expected trailing twin never arrived - see gate below
 volatile uint8_t  dbgSeq      = 0;
 volatile uint8_t  dbgEvent    = DBG_NONE;
 volatile uint32_t dbgInterval = 0;
@@ -175,74 +203,117 @@ ISR(TIMER5_CAPT_vect){
   uint32_t interval = capExt - lastCaptureExt;
 
   // Blank the trailing twin: ignore any edge closer than max(fixed floor,
-  // 1/2 of last period) to the previous kept edge. Anchor stays on the kept edge.
-  // (Was 3/8: raised to exactly match the rate-of-change gate's lower bound
-  // below, so an edge in [3/8,1/2)x lastPeriod doesn't fall through blanking
-  // only to get caught - and drop sync - by the rate gate instead. A silent
-  // blank is the gentler outcome for the same signal. Margin against wrongly
-  // blanking a genuine speed increase is unchanged in practice: that still
-  // needs >2x acceleration in one revolution, the same assumption the rate
-  // gate's upper bound already makes elsewhere.)
+  // 1/2 of the reference period) to the previous kept edge. Anchor stays on
+  // the kept edge.
+  //
+  // The reference is lastPeriod once synced, but prevInterval (the last raw
+  // accepted interval) during acquisition. Without that second case the
+  // window collapses to the FIXED_BLANK_TICKS floor while unsynced, and no
+  // fixed floor can work for both ends of the range - a 300rpm twin gap
+  // (~16.7ms) is longer than a 6000rpm real period (10ms). Using the running
+  // interval instead means one L->T->L pass is enough to widen the window
+  // past the twin, so the twin never gets to establish a period.
   uint32_t blank = FIXED_BLANK_TICKS;
-  if (synced){
-    uint32_t dyn = lastPeriod / 2UL;
+  uint32_t ref   = synced ? lastPeriod : prevInterval;
+  if (ref){
+    uint32_t dyn = ref / 2UL;
     if (dyn > blank) blank = dyn;
   }
   if (interval < blank){
+    twinSeenThisRev = true;   // the expected trailing twin showed up on time
     dbgEvent=DBG_BLANKED; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
     return;   // trailing twin -> discard
   }
 
   // Plausibility gate: reject noise / impossible speeds (absolute bounds).
   if (interval < PERIOD_MIN_TICKS || interval > PERIOD_MAX_TICKS){
-    lastCaptureExt=capExt; synced=false;
+    lastCaptureExt=capExt; synced=false; prevInterval=0; twinSeenThisRev=true;
     lastEdgeMicros=micros();
     dbgEvent=DBG_REJECTED; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
     return;
   }
 
+  // Missing-twin gate: if we're synced and expected the trailing twin before
+  // this candidate leading edge but never saw it blanked, something is wrong
+  // even though the interval itself may look numerically plausible. This is
+  // the confirmed signature of a single dropped leading edge whose twin
+  // still arrives: the twin lands at (period + twinGap) from the true
+  // previous edge - only ~5-10% off a normal period at typical twin angles,
+  // easily inside the rate gate's 1.5x bound - and the following real edge
+  // then measures (period - twinGap) from THAT false anchor, also inside
+  // bounds. Both sail through unchallenged and fire at a wrong angle unless
+  // caught here. Reproduced on the bench with the simulator's dropped-edge
+  // injection: two consecutive wrong-angle sparks and a MAX_DWELL trip,
+  // with the rate gate never triggering at all. Shares the same streak/
+  // escape mechanics as the rate gate below, since both represent "this
+  // reference can no longer be trusted."
+  if (synced && !twinSeenThisRev){
+    if (++rateJumpStreak < RATEJUMP_ESCAPE_COUNT){
+      lastCaptureExt=capExt; synced=false; prevInterval=interval; twinSeenThisRev=true;
+      lastEdgeMicros=micros();
+      dbgEvent=DBG_TWINMISS; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
+      return;
+    }
+    rateJumpStreak = 0;
+    lastCaptureExt=capExt; lastPeriod=interval; prevInterval=interval;
+    synced=true; twinSeenThisRev=false; lastEdgeMicros=micros();
+    dbgEvent=DBG_ESCAPE; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
+    return;
+  }
+
   // Rate-of-change gate: once synced, real rev-to-rev variation won't exceed
-  // roughly 2x, so a dropped edge (~2x lastPeriod) or a spurious extra edge
+  // roughly 1.5x on the high side (see RATE_MAX_NUM/DEN above) or 0.5x on the
+  // low side, so a dropped edge (~2x lastPeriod) or a spurious extra edge
   // (~0.5x or less) gets caught immediately instead of being accepted as a
-  // legitimate speed and used to schedule a wrong-angle spark. (It would
-  // eventually self-correct on the next capture anyway, since that recomputes
-  // fresh from this rejection's own timestamp, but this avoids the one/two
-  // wrong-angle sparks in between.)
+  // legitimate speed and used to schedule a wrong-angle spark.
   //
   // Escape hatch (RATEJUMP_ESCAPE_COUNT consecutive rejections): without this,
   // a bad lastPeriod can lock out spark PERMANENTLY, not just cost a couple of
-  // revolutions - confirmed by bench test, not theoretical. If the twin ever
-  // gets mistaken for a real edge right after a resync (FIXED_BLANK_TICKS is
-  // a fixed absolute floor, but the twin's absolute gap grows at lower rpm -
-  // reproduced live at 800rpm idle: 30+ seconds of zero FIRED events, stuck
-  // alternating SYNCFIRST-on-the-twin then RATEJUMP-on-the-real-edge forever),
-  // lastPeriod gets poisoned to the tiny twin-gap value. Every subsequent real
-  // edge then looks like a >2x jump from that wrong reference and gets
-  // rejected, which drops sync, and the very next capture (still the twin)
-  // gets mis-synced the same way again - a stable trap with no way out, since
-  // nothing ever gets a chance to relearn the true period. After a few
+  // revolutions - confirmed by bench test, not theoretical. The acquisition
+  // agreement check below closes the specific path that caused this (the
+  // twin mis-syncing as a period), but the escape hatch stays as a backstop
+  // against a poisoned reference arriving by some other path. After a few
   // consecutive rejections, stop trusting lastPeriod and rebuild sync from
-  // this edge instead, exactly like a fresh "!synced" start.
-  if (synced && (interval > lastPeriod * 2UL || interval * 2UL < lastPeriod)){
+  // this edge instead, exactly like a fresh start.
+  if (synced && ((interval * RATE_MAX_DEN > lastPeriod * RATE_MAX_NUM) ||
+                 (interval * RATE_MIN_DEN < lastPeriod * RATE_MIN_NUM))){
     if (++rateJumpStreak < RATEJUMP_ESCAPE_COUNT){
-      lastCaptureExt=capExt; synced=false;
+      lastCaptureExt=capExt; synced=false; prevInterval=interval; twinSeenThisRev=true;
       lastEdgeMicros=micros();
       dbgEvent=DBG_RATEJUMP; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
       return;
     }
     rateJumpStreak = 0;
-    lastCaptureExt=capExt; lastPeriod=interval;
-    synced=true; lastEdgeMicros=micros();
+    lastCaptureExt=capExt; lastPeriod=interval; prevInterval=interval;
+    synced=true; twinSeenThisRev=false; lastEdgeMicros=micros();
     dbgEvent=DBG_ESCAPE; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
     return;
   }
 
-  // First good edge just establishes the period; fire from the second on.
+  // Sync acquisition: require two consecutive intervals that agree within the
+  // SYNC_AGREE band before declaring sync. A single interval is not enough -
+  // it could be a leading-to-twin or twin-to-leading gap just as easily as a
+  // real revolution, and accepting one of those poisons lastPeriod (bug #8).
+  // Only the true L->L period repeats consistently, so agreement identifies it.
+  //
+  // IMPORTANT: do NOT reset rateJumpStreak in this branch. The escape hatch
+  // above only ever accumulates because acquisition states sit between
+  // consecutive rate-gate rejections. Clearing the streak here looks like
+  // harmless hygiene and would silently cap it at 1, restoring the permanent
+  // spark lockout that the escape hatch exists to break.
   if (!synced){
-    lastCaptureExt=capExt; lastPeriod=interval;
-    synced=true; lastEdgeMicros=micros();
-    dbgEvent=DBG_SYNCFIRST; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
-    return;
+    bool agrees = prevInterval &&
+                  (interval * SYNC_AGREE_NUM > prevInterval * SYNC_AGREE_DEN) &&
+                  (interval * SYNC_AGREE_DEN < prevInterval * SYNC_AGREE_NUM);
+    lastCaptureExt=capExt; prevInterval=interval;
+    lastEdgeMicros=micros();
+    if (agrees){
+      lastPeriod=interval; synced=true; twinSeenThisRev=false;
+      dbgEvent=DBG_SYNCFIRST; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
+      return;                    // period established, fire from next edge
+    }
+    dbgEvent=DBG_SYNCCAND; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
+    return;                      // candidate only, not yet trusted
   }
 
   // ---- schedule this rev's spark (integer, no float) ----
@@ -263,7 +334,7 @@ ISR(TIMER5_CAPT_vect){
   uint32_t period    = interval;
   uint32_t fracTicks = period * AFTER_EDGE_DEG / 360UL;
   if (fracTicks > 0xFFFFUL){
-    lastCaptureExt=capExt; lastPeriod=period; synced=true;
+    lastCaptureExt=capExt; lastPeriod=period; prevInterval=period; synced=true; twinSeenThisRev=false;
     lastEdgeMicros=micros();
     dbgEvent=DBG_UNSCHED; dbgInterval=interval; dbgBlank=blank; dbgSeq++;
     return;
@@ -292,8 +363,8 @@ ISR(TIMER5_CAPT_vect){
   }
 
   rateJumpStreak = 0;
-  lastCaptureExt=capExt; lastPeriod=period;
-  synced=true; lastEdgeMicros=micros();
+  lastCaptureExt=capExt; lastPeriod=period; prevInterval=period;
+  synced=true; twinSeenThisRev=false; lastEdgeMicros=micros();
   dbgEvent=DBG_FIRED; dbgInterval=interval; dbgBlank=blank;
   dbgPeriod=period; dbgFracUs=fracTicks*US_PER_TICK; dbgSeq++;
 }
@@ -374,6 +445,8 @@ void printDebug(){
     case DBG_UNSCHED:    Serial.print(F("UNSCHED  ")); break;
     case DBG_RATEJUMP:   Serial.print(F("RATEJUMP ")); break;
     case DBG_ESCAPE:     Serial.print(F("ESCAPE   ")); break;
+    case DBG_SYNCCAND:   Serial.print(F("SYNCCAND ")); break;
+    case DBG_TWINMISS:   Serial.print(F("TWINMISS ")); break;
     default:             Serial.print(F("NONE     ")); break;
   }
   Serial.print(F(" interval_us=")); Serial.print(interval * US_PER_TICK);
@@ -411,7 +484,7 @@ void loop(){
   if ((int32_t)(now - lastEdge) > (int32_t)STALL_US){
     COIL_LOW();
     TIMSK5 &= ~(_BV(OCIE5A) | _BV(OCIE5B));
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ coilCharging=false; synced=false; }
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ coilCharging=false; synced=false; prevInterval=0; twinSeenThisRev=true; }
     if (!stallLatched && Serial.availableForWrite() >= (SERIAL_TX_BUFFER_SIZE - 1)){
       Serial.print(F("WATCHDOG: STALL gap_us=")); Serial.println((int32_t)(now - lastEdge));
       stallLatched = true;
