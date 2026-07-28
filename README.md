@@ -142,12 +142,34 @@ Suggested test sequence: start with `j` off and `c`, confirm each ignition board
 
 `TWIN_GAP_DEG` (default 30°) in the simulator should be kept in sync with whatever real magnet width you eventually measure, and compared against `FIXED_BLANK_TICKS` in the ignition sketch — these two values are meant to track each other.
 
+## Bench VR conditioner logger (`vr_logger/vr_logger.ino`)
+
+A pure capture-and-log tool for characterizing the **real** VR conditioner circuit against a real sensor — the one thing `pulse_simulator` can't do, since it only fakes the conditioner's output rather than testing the actual analog front end. No ignition logic at all; it never drives a coil pin, so it's safe to run on a spare Mega with the real conditioner connected and nothing else.
+
+Wire the conditioner's output to pin 48 (ICP5) — same pin, same Timer5 config (`/256` prescale, noise canceler on, same capture polarity) `one_cyl_ignition.ino` uses, so what's logged is exactly what the ignition firmware would actually see, not an idealized version of it. Turn the engine over with a drill (no fuel/plugs needed for this — it's purely characterizing the sensor/conditioner signal, not testing spark) and watch the serial log at 115200 baud.
+
+It captures both edges (toggles `ICES5` after every interrupt) and logs each one:
+- `EDGE=RISE gap_us=...` — the low time since the previous falling edge
+- `EDGE=FALL pulse_us=...` — the high time since the previous rising edge
+
+A clean revolution should show a short `pulse_us`, a short `gap_us` (the twin), another short `pulse_us`, then one long `gap_us` back to the next leading edge. That long/short gap split is exactly what `TWIN_GAP_DEG` (in `pulse_simulator`) and `FIXED_BLANK_TICKS` (in `one_cyl_ignition`) need to be tuned against — this tool is how you get real numbers to tune them with instead of guessing.
+
+| Key | Action |
+|---|---|
+| `p` | print min/max/avg summary (pulse width, short-gap range, long-gap range) since last reset |
+| `r` | reset summary stats (doesn't clear the live per-edge log) |
+| `n` | toggle the input-capture noise canceler (`ICNC5`) live, to compare against production's default-on behavior — useful for spotting real bounce/noise that the canceler would otherwise hide |
+
+`gapSplitUs` (top of the file, default 5000 µs) is just the short/long divider used to bucket gaps into the summary stats — it doesn't affect the raw per-edge log, only which bucket a `RISE` line's stats get folded into. Adjust it after a first look at the raw log if the real twin gap turns out to be much shorter or longer than 5 ms.
+
+Once you have real `pulse_us`/`gap_us` numbers from this tool, feed them back into `one_cyl_ignition`'s `FIXED_BLANK_TICKS` and `pulse_simulator`'s `TWIN_GAP_DEG` (see Roadmap).
+
 ## Roadmap
 
 - **Confirm actual starter cranking rpm is reliably above ~50 rpm** (see "Known hardware limitation" above) — the single most important pre-fuel check given the current trigger angle, though this should be a very comfortable margin for any real starter.
 - Verify `TRIGGER_ANGLE_BTDC` and `ADVANCE_BTDC` per cylinder with a timing light before running on fuel.
 - Confirm all three flywheel magnets sit at the same angle relative to their own cylinder's TDC (assumed, should be checked).
-- Build/verify the VR conditioner circuit against a real sensor — `pulse_simulator` only validates the ignition board's digital capture/blanking/timing logic, not the analog front end (waveform clamping, threshold, twin-pulse gap width). Measure the real twin-pulse gap on a scope and tune `FIXED_BLANK_TICKS`/`TWIN_GAP_DEG` to match.
+- Build/verify the VR conditioner circuit against a real sensor — `pulse_simulator` only validates the ignition board's digital capture/blanking/timing logic, not the analog front end (waveform clamping, threshold, twin-pulse gap width). Use `vr_logger/vr_logger.ino` (drill-cranked, no scope required) to measure the real twin-pulse gap and pulse width, then tune `FIXED_BLANK_TICKS`/`TWIN_GAP_DEG` to match.
 - Install the pin-5 pulldown resistor on the actual deployed boards (skipped during bench debug sessions where it doesn't matter, but matters for a running engine where brownouts can occur).
 - **Set the BOD fuse to 4.3V before deployment.** Stock Arduino Mega fuses ship with `BODLEVEL` at 2.7V, but an ATmega2560 at 16MHz is only in spec down to 4.5V. That leaves a 2.7–4.5V window where the MCU keeps executing instead of resetting, and it can execute anything. The pin-5 pulldown's whole safety argument assumes a supply sag produces a clean reset, and at the stock fuse setting it doesn't — which matters in a marine cranking environment. Set `BODLEVEL` to 4.3V via ISP, in the same session as removing the bootloader (next item) since both need the same hardware.
 - Consider flashing the deployed boards via ISP with no bootloader instead of the stock Mega bootloader. The pulldown already makes a brownout/reset electrically safe (coil goes to OFF, not stuck charging), and the firmware won't fire at a wrong angle coming out of a reset (it re-establishes sync first) — but every reset still has to sit through the bootloader's wait-for-upload delay (roughly a second or more) before the sketch even starts running again, which is long enough to fully stall a small running engine rather than just stumble through a brief dip. Removing the bootloader (flash directly via the ICSP header) makes recovery near-instant instead. Not a safety fix — a reliability one, since the failure mode either way is "stalls, needs a restart," never a hazard.
