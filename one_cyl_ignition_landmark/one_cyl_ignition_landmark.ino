@@ -69,11 +69,17 @@ void wdt_early_disable(void){
 #define SYNC_AGREE_NUM       4
 #define SYNC_AGREE_DEN       3
 
-/* Rate-of-change bounds on landmark periods (asymmetric, same rationale as prod). */
-#define RATE_MAX_NUM         3        // reject if period > lastPeriod * 3/2
-#define RATE_MAX_DEN         2
-#define RATE_MIN_NUM         1        // reject if period < lastPeriod * 1/2
-#define RATE_MIN_DEN         2
+/* Rate-of-change bounds on landmark periods. LOOSENED vs production (was 1.5x /
+ * 0.5x): real starter cranking on a 3-cyl 2-stroke swings rev-to-rev by well over
+ * 50% from per-compression torque pulses, and a landmark placed one rev late then
+ * early (191ms then 122ms = a 1.57x step) tripped the tighter band, forcing a full
+ * re-sync and a multi-rev spark gap. 1.75x still cleanly catches a doubled landmark
+ * (~2x); 0.4x still catches a spurious extra landmark (the width classifier is the
+ * first line of defense against those anyway). */
+#define RATE_MAX_NUM         7        // reject if period > lastPeriod * 7/4
+#define RATE_MAX_DEN         4
+#define RATE_MIN_NUM         2        // reject if period < lastPeriod * 2/5
+#define RATE_MIN_DEN         5
 
 /* ---- timebase (/256 @ 16 MHz -> 16 us/tick) ---- */
 #define US_PER_TICK          16UL
@@ -112,6 +118,7 @@ volatile uint8_t  rateJumpStreak  = 0;
 #define DBG_RATEJUMP  6   // landmark period outside 0.5x-1.5x of lastPeriod
 #define DBG_ESCAPE    7   // rate-gate escape hatch fired
 #define DBG_SYNCCAND  8   // landmark recorded, not yet agreeing
+#define DBG_EARLY     9   // synced: landmark arrived too early (<0.7P) -> spurious, discarded
 volatile uint8_t  dbgSeq      = 0;
 volatile uint8_t  dbgEvent    = DBG_NONE;
 volatile uint32_t dbgInterval = 0;   // raw interval (SKIP) or landmark period (others)
@@ -144,7 +151,16 @@ ISR(TIMER5_CAPT_vect){
   // 0.6*refBig threshold — observed as an all-SKIP run. A real landmark
   // interval, even at the ~55rpm floor, stays under PERIOD_MAX_TICKS.
   if (interval > refBig){
-    if (interval < PERIOD_MAX_TICKS) refBig = interval;
+    if (interval < PERIOD_MAX_TICKS){
+      // Capped rise: a single oversized interval (one slow/irregular rev) may
+      // raise the peak by at most 25%, not snap it all the way up. This keeps the
+      // classifier threshold parked near the TYPICAL landmark magnitude (~90ms)
+      // instead of spiking to ~124ms after one rough rev and cascading a hop; a
+      // genuine sustained speed change still climbs in a couple of edges. (refBig
+      // seeds directly on the first plausible interval, when it is still 0.)
+      uint32_t capped = refBig + (refBig >> 2);
+      refBig = (refBig == 0 || interval < capped) ? interval : capped;
+    }
   } else {
     refBig -= (refBig >> REFBIG_DECAY_SHIFT);
   }
@@ -154,49 +170,59 @@ ISR(TIMER5_CAPT_vect){
     return;                        // burst edge -> discard for sync/timing
   }
 
-  // ---- landmark: this rev's once-per-rev reference edge ----
-  uint32_t period = capExt - lastLandmarkExt;
-  lastLandmarkExt = capExt;        // advance the anchor even if we reject below
+  // ---- landmark: a candidate once-per-rev reference edge ----
+  uint32_t period = capExt - lastLandmarkExt;   // time since the last ACCEPTED landmark
 
   // Absolute plausibility.
   if (period < PERIOD_MIN_TICKS || period > PERIOD_MAX_TICKS){
-    synced=false; prevPeriod=0;
+    synced=false; prevPeriod=0; lastLandmarkExt=capExt;
     dbgEvent=DBG_REJECTED; dbgInterval=period; dbgRefBig=refBig; dbgSeq++;
     return;
   }
 
-  // Rate-of-change gate, with the same escape hatch as production.
-  if (synced && ((period * RATE_MAX_DEN > lastPeriod * RATE_MAX_NUM) ||
-                 (period * RATE_MIN_DEN < lastPeriod * RATE_MIN_NUM))){
-    if (++rateJumpStreak < RATEJUMP_ESCAPE_COUNT){
-      synced=false; prevPeriod=period;
-      dbgEvent=DBG_RATEJUMP; dbgInterval=period; dbgRefBig=refBig; dbgSeq++;
+  if (synced){
+    // Predictive phase-lock: with a rhythm established, only a landmark that lands
+    // in a window around the predicted time (lastPeriod after the last accepted
+    // one) may move the anchor. This is what stops an occasional false or missed
+    // landmark from corrupting the phase and firing at wrong rpm (the v3 failure):
+    // the anchor is advanced ONLY on an in-window edge, never speculatively.
+    if (period * 10 < lastPeriod * 7){          // EARLY (<0.7*P): spurious extra edge
+      dbgEvent=DBG_EARLY; dbgInterval=period; dbgRefBig=refBig; dbgSeq++;
+      return;                                   // discard; do NOT advance anchor or fire
+    }
+    if (period * 10 > lastPeriod * 14){         // LATE (>1.4*P): missed landmark / slowdown
+      lastLandmarkExt=capExt;                   // re-anchor on this real edge...
+      if (++rateJumpStreak < RATEJUMP_ESCAPE_COUNT){
+        dbgEvent=DBG_RATEJUMP; dbgInterval=period; dbgRefBig=refBig; dbgSeq++;
+        return;                                 // ...skip this spark, keep the speed estimate
+      }
+      rateJumpStreak=0; lastPeriod=period; prevPeriod=period;
+      dbgEvent=DBG_ESCAPE; dbgInterval=period; dbgRefBig=refBig; dbgSeq++;
       return;
     }
-    rateJumpStreak=0; lastPeriod=period; prevPeriod=period; synced=true;
-    dbgEvent=DBG_ESCAPE; dbgInterval=period; dbgRefBig=refBig; dbgSeq++;
-    return;
-  }
-
-  // Acquisition: two consecutive landmark periods must agree.
-  if (!synced){
+    // In-window: accept. Advance the anchor, smooth the speed estimate (75/25) so
+    // scheduling stays steady through per-rev cranking jitter, clear the streak.
+    lastLandmarkExt=capExt;
+    rateJumpStreak=0;
+    lastPeriod = (lastPeriod * 3 + period) >> 2;
+  } else {
+    // Acquisition: two consecutive landmark periods must agree before trusting a rhythm.
     bool agrees = prevPeriod &&
                   (period * SYNC_AGREE_NUM > prevPeriod * SYNC_AGREE_DEN) &&
                   (period * SYNC_AGREE_DEN < prevPeriod * SYNC_AGREE_NUM);
-    prevPeriod = period;
+    prevPeriod = period; lastLandmarkExt=capExt;
     if (agrees){
       lastPeriod=period; synced=true;
       dbgEvent=DBG_SYNCFIRST; dbgInterval=period; dbgRefBig=refBig; dbgSeq++;
-      return;
+    } else {
+      dbgEvent=DBG_SYNCCAND; dbgInterval=period; dbgRefBig=refBig; dbgSeq++;
     }
-    dbgEvent=DBG_SYNCCAND; dbgInterval=period; dbgRefBig=refBig; dbgSeq++;
-    return;
+    return;                                      // no fire until a rhythm is confirmed
   }
 
-  // ---- schedule this rev's once-per-rev LED pulse off the landmark edge ----
-  uint32_t fracTicks = period * AFTER_EDGE_DEG / 360UL;
+  // ---- schedule this rev's LED pulse off the landmark edge, using smoothed speed ----
+  uint32_t fracTicks = lastPeriod * AFTER_EDGE_DEG / 360UL;
   if (fracTicks > 0xFFFFUL){
-    lastPeriod=period; prevPeriod=period; synced=true;
     dbgEvent=DBG_UNSCHED; dbgInterval=period; dbgRefBig=refBig; dbgSeq++;
     return;
   }
@@ -214,9 +240,8 @@ ISR(TIMER5_CAPT_vect){
     TIMSK5 |= _BV(OCIE5A);
   }
 
-  rateJumpStreak=0; lastPeriod=period; prevPeriod=period; synced=true;
   dbgEvent=DBG_FIRED; dbgInterval=period; dbgRefBig=refBig;
-  dbgPeriod=period; dbgFracUs=fracTicks*US_PER_TICK; dbgSeq++;
+  dbgPeriod=lastPeriod; dbgFracUs=fracTicks*US_PER_TICK; dbgSeq++;
 }
 
 /* ---- dwell start ---- */
@@ -281,6 +306,7 @@ void printDebug(){
     case DBG_RATEJUMP:  Serial.print(F("RATEJUMP ")); break;
     case DBG_ESCAPE:    Serial.print(F("ESCAPE   ")); break;
     case DBG_SYNCCAND:  Serial.print(F("SYNCCAND ")); break;
+    case DBG_EARLY:     Serial.print(F("EARLY    ")); break;
     default:            Serial.print(F("NONE     ")); break;
   }
   // interval_us is the raw edge interval for SKIP, else the landmark period.
@@ -316,7 +342,11 @@ void loop(){
   if ((int32_t)(now - lastEdge) > (int32_t)STALL_US){
     COIL_LOW();
     TIMSK5 &= ~(_BV(OCIE5A) | _BV(OCIE5B));
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ coilCharging=false; synced=false; prevPeriod=0; refBig=0; }
+    // Keep refBig across a stall: the PERIOD_MAX guard + capped rise already stop
+    // an idle-gap interval from poisoning it, so retaining the warm ~90ms peak lets
+    // the next cranking burst classify landmarks correctly from the first edge
+    // instead of re-climbing cold.
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ coilCharging=false; synced=false; prevPeriod=0; }
     if (!stallLatched && Serial.availableForWrite() >= (SERIAL_TX_BUFFER_SIZE - 1)){
       Serial.print(F("WATCHDOG: STALL gap_us=")); Serial.println((int32_t)(now - lastEdge));
       stallLatched = true;
