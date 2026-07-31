@@ -218,6 +218,23 @@ After terminating the charge coil (all three leads twisted together and insulate
 
 *(Data note: a few absurd values in the post-fix logs — e.g. `pulse_us=606331584` — are `vr_logger` capture-overflow glitches, single occurrences; ignore them. The tool reported `dropped=0` on all runs.)*
 
+### Firmware sync test under starter (2026-07-31) — FAILED, root-caused
+
+The debug ignition build (`one_cyl_ignition_debug`, driving an LED on pin 5, no coil) was flashed and cranked with the real starter, telemetry captured to `bench_logs/starter_debug_2026-07-31.txt`. **The firmware did not hold sync.** It re-acquired sync 6 times and fired only 8 sparks total, each run collapsing within 1–2 revs; 96 `SYNCCAND` events means the two-intervals-agree gate failed nearly every revolution. The 8 sparks fired at nonsense periods — reported rpm of 1735/895/486/871/891/381/589/1035 against a true cranking speed of ~375 rpm — i.e. the decoder locked onto **intra-burst edge spacings** (34–100 ms fractions of a rev) and fired as if spinning 2–5× faster. `edgeToSpark_us` swung 30k–137k µs, so on a real coil these sparks would land at random crank angles (including near TDC on compression — a kickback hazard). **Do not run this on a real coil or fuel under the starter until sync is fixed.**
+
+**Root cause: the blank window is shorter than the conditioner's burst at starter speed.** The firmware blanks `lastPeriod/2` after the kept leading edge. The multi-edge burst's absolute duration barely shrinks with rpm (long-HIGH ~117 ms on the drill at 163 rpm, ~84 ms on the starter at 375 rpm — *not* proportional to speed), so it occupies a growing fraction of the revolution as rpm rises:
+
+| | rev period | burst (long-HIGH) | blank = period/2 | result |
+|---|---|---|---|---|
+| Drill (163 rpm) | ~368 ms | ~117 ms (32%) | ~184 ms | burst fits inside blank → masked ✓ |
+| Starter (375 rpm) | ~160 ms | ~84 ms (52%) | ~80 ms | burst exceeds blank → trailing edge leaks ✗ |
+
+At starter speed a trailing burst edge escapes the half-period blank and is mistaken for the next rev's leading edge → false short period → mis-sync. Once a short false period is locked, the blank shrinks to half of *that* (~33 ms), which can't even cover the 84 ms long-HIGH — a self-reinforcing mis-sync it can't recover from. The drill "worked" (clean ignitions) only because it was slow enough that `period/2` swallowed the whole burst. **The earlier expectation that steady starter cranking would be easier than the erratic drill was exactly backwards** — faster rev = shorter blank vs a burst that grows as a fraction of the rev.
+
+**Implication:** this can't be safely tuned away with a bigger blank (a blank long enough to cover the burst at cranking would blank past the real trigger at higher rpm, and the burst fraction only grows with rpm until the VR signal is strong enough to stop the conditioner multi-triggering — an unknown, un-guaranteed point above cranking). The fix must stop the burst at the source or change sensors:
+- **Cheapest first shot:** reduce the VR air gap / fit a stronger trigger magnet so the conditioner emits one clean edge at cranking instead of a burst. If it does, the existing firmware works unchanged.
+- **The 1-magnet/3-Hall swap is now warranted, not optional** — a Hall sensor gives one clean edge per rev with no burst and no blank-vs-burst race, structurally eliminating the failure the bench just demonstrated. (This overturns the "optional robustness upgrade" framing above, which was based on the drill result; the starter result is decisive.)
+
 ### Alternative sensor architectures considered
 
 If the ground fix doesn't fully resolve the noise, two sensor-hardware alternatives came up:
