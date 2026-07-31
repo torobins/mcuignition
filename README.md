@@ -192,6 +192,32 @@ The charge coil is **three wires = one center-tapped winding**, not two separate
 
 A before-fix baseline capture is saved at `bench_logs/vr_log_before_groundfix_2026-07-28.txt` (noise canceler off, real starter cranking) — no clean once-per-rev twin-pulse rhythm anywhere; pulse/gap widths range from sub-64µs chatter to 27,000–130,000µs stretches. Capture a same-format log after the ground fix, at the same test point (starter cranking, not the clean drill baseline), to compare directly rather than judging "it looks cleaner" by eye.
 
+### Post-fix results (2026-07-31)
+
+After terminating the charge coil (all three leads twisted together and insulated) and moving the VR conditioner ground to a single point at the flywheel-casing bolt (removing the conditioner-GND-to-battery-neg wire), five `vr_logger` captures were taken. All are in `bench_logs/`:
+
+| File | Drive | Canceler | rpm | Edges/rev | Notes |
+|---|---|---|---|---|---|
+| `vr_log_before_groundfix_2026-07-28.txt` | starter | off | ~378 | ~10, unreadable | baseline: sub-tick chatter, no stable rhythm |
+| `vr_after_starter_off_2026-07-31.txt` | starter | off | ~367 | ~7.7 | post-fix, first capture |
+| `vr_after_starter_off_b_2026-07-31.txt` | starter | off | ~367 | ~7.7 | post-fix, repeat |
+| `vr_after_starter_on_2026-07-31.txt` | starter | **on** | ~374 | ~8.1 | canceler makes no difference |
+| `vr_after_drill_on_2026-07-31.txt` | drill | on | ~163 | ~5.3 | drill A/B |
+
+**What the ground fix fixed (confirmed):** the high-frequency noise floor is gone. Baseline captures bottomed out at 0µs edge widths (sub-timer-tick chatter — noise edges piling up inside one tick); every post-fix capture has a minimum edge width of ~176µs and **no zero-width edges at all**. The revolution rhythm went from wildly erratic (110k–301k µs period, no stable once-per-rev) to a rock-steady ~160–167k µs period. The ground-loop diagnosis (chassis IR drop from starter return current injected as false differential) is validated — that class of noise is eliminated.
+
+**What it did NOT fix, and why that's OK:** at cranking speed the conditioner still emits a **multi-edge burst** (~5–8 edges) per magnet pass instead of one clean edge, with a consistent `long-HIGH → medium-HIGH → short → short` signature every rev. Three findings pin down the cause:
+
+- **The noise canceler (`n` toggle) made no difference** (starter on vs off: same ~8 edges/rev, same signature). The ICP hardware canceler only rejects sub-microsecond glitches; these edges are 3–8 ms wide, so they're **genuine conditioner output transitions, not electrical glitches.**
+- **The drill shows the same burst** (~5 edges/rev), so it is **inherent to the VR sensor/conditioner at low speed, not starter-specific electrical noise.** (An earlier impression that the drill gave a "clean" signal was relative to the noise-mush baseline, not literally one edge per rev.)
+- **The "long-HIGH" is not a fixed conditioner timeout** — it scales with speed (84 ms at ~370 rpm starter, ~117 ms at ~163 rpm drill), i.e. it tracks the raw VR waveform of one slow magnet pass. A VR sensor's output amplitude is proportional to rpm, so at cranking speed the signal barely clears the conditioner's adaptive threshold and it arms/disarms several times across a single slow bipolar pass. This is the textbook VR-at-cranking limitation; grounding and noise-canceling cannot fix it because it is not noise.
+
+**Crucially, this multi-edge burst is not disqualifying for the ignition firmware.** `vr_logger` logs *every* edge (that's its purpose); the ignition firmware deliberately discards most of them. It keeps one leading edge per rev and blanks every edge for `max(FIXED_BLANK_TICKS, lastPeriod/2)` after it, requires two consecutive intervals to agree within ±25% before declaring sync, and rate-gates intervals to 0.5×–1.5× the last period. The burst is exactly the "trailing twin + low-speed multi-trigger" mess those filters were built to reject. Consistent with this, **running the actual ignition firmware on the drill produced clean ignitions** — the firmware locks onto one stable reference edge and blanks the rest. The real value of the ground fix is that it gave the *starter* signal the stable, repeatable per-rev rhythm the blanking logic needs to lock onto (the noisy baseline had no such rhythm).
+
+**The one test that still gates deployment:** run the ignition firmware — ideally the debug build for telemetry — under **real starter cranking**, post-fix, and confirm clean stable ignitions at correct timing, as the drill gave. Watch for the leading edge staying on the same physical edge each rev (timing jitter if it hops) and any `MAX_DWELL` trips or wrong-angle sparks. Steady starter cranking should be easier for the decoder than the erratic hand-drill. If that test *does* show instability, the 1-magnet/3-Hall swap below is the robust fix (Hall output is amplitude-independent — one clean edge per pass at any rpm, eliminating the low-speed marginality entirely); until then it stays an optional robustness upgrade, not a required change.
+
+*(Data note: a few absurd values in the post-fix logs — e.g. `pulse_us=606331584` — are `vr_logger` capture-overflow glitches, single occurrences; ignore them. The tool reported `dropped=0` on all runs.)*
+
 ### Alternative sensor architectures considered
 
 If the ground fix doesn't fully resolve the noise, two sensor-hardware alternatives came up:
