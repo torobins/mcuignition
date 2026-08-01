@@ -93,15 +93,18 @@ void wdt_early_disable(void){
 #define COIL_HIGH() (COIL_PORT |=  _BV(COIL_BIT))
 #define COIL_LOW()  (COIL_PORT &= ~_BV(COIL_BIT))
 
-/* ---- timing-light STROBE pin (D6 = PH3) ----
+/* ---- timing-light STROBE pins (D6/D7/D8 = PH3/PH4/PH5) ----
  * A short bright flash at the exact spark instant, for reading the flywheel timing
  * marks like a timing light without depending on the inductive pickup triggering on
- * the smart coil's HT pulse. Wire a bright LED (+series R) from D6 to GND. */
+ * the smart coil's HT pulse. Drives THREE pins together, one LED (+ its own series R,
+ * ~100R) per pin to GND: sharing one pin across 3 LEDs oversourced it (~54mA) and
+ * sagged them dim, so each LED gets its own pin's ~18mA at full brightness instead.
+ * (Still not enough in daylight? Drive the LEDs from +12V through an NPN transistor.) */
 #define STROBE_DDR   DDRH
 #define STROBE_PORT  PORTH
-#define STROBE_BIT   PH3
-#define STROBE_HIGH() (STROBE_PORT |=  _BV(STROBE_BIT))
-#define STROBE_LOW()  (STROBE_PORT &= ~_BV(STROBE_BIT))
+#define STROBE_MASK  (_BV(PH3) | _BV(PH4) | _BV(PH5))   // D6, D7, D8 -- one LED each
+#define STROBE_HIGH() (STROBE_PORT |=  STROBE_MASK)
+#define STROBE_LOW()  (STROBE_PORT &= ~STROBE_MASK)
 #define STROBE_US     1000UL         // flash width (~2.8 deg at 460rpm; wider = easier to see)
 
 /* ---- shared state ---- */
@@ -265,7 +268,7 @@ void setup(){
 
   COIL_DDR |= _BV(COIL_BIT);
   COIL_LOW();
-  STROBE_DDR |= _BV(STROBE_BIT);
+  STROBE_DDR |= STROBE_MASK;
   STROBE_LOW();
   // Strobe/wiring self-test: 6 clearly-visible blinks at boot, so pin 6 + the LED
   // wiring can be verified WITHOUT cranking. The real strobe is only 300us and is
