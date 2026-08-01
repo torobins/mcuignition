@@ -46,9 +46,25 @@ void wdt_early_disable(void){
 }
 
 /* ---- config ---- */
-#define TRIGGER_ANGLE_BTDC   330      // provisional; landmark edge angle NOT yet
-#define ADVANCE_BTDC         15       // calibrated for this build (see header).
-#define AFTER_EDGE_DEG       (TRIGGER_ANGLE_BTDC - ADVANCE_BTDC)  // edge->spark = 315
+/* CALIBRATION KNOB: TRIGGER_ANGLE_BTDC is the ASSUMED crank angle (BTDC) of the
+ * landmark edge. It is NOT yet calibrated. A jittery low-battery strobe read on
+ * 2026-07-31 showed ~30 deg actual advance while intending 15 -> true landmark is
+ * ~345 BTDC, so this likely wants to become ~345 once a clean (charged-battery)
+ * strobe reading is taken. Because BOTH advances below derive from it, fixing this
+ * one number corrects the cranking AND running spark angle together. */
+#define TRIGGER_ANGLE_BTDC   330      // assumed landmark-edge angle BTDC (uncalibrated)
+#define ADVANCE_BTDC         15       // running advance (fixed for now)
+
+/* Cranking retard: below CRANK_RPM, fire at a near-TDC advance instead of the
+ * running curve. Starting doesn't need precise timing, and the once-per-rev sync
+ * is jittery at cranking (long prediction horizon + real torque-pulse speed
+ * variation); firing near TDC keeps every jittery cranking spark in a start-
+ * friendly, kickback-safe zone. Above CRANK_RPM it switches to ADVANCE_BTDC. */
+#define CRANK_ADVANCE_BTDC   5        // near-TDC advance used below CRANK_RPM
+#define CRANK_RPM            500      // crank/run switchover speed
+
+#define AFTER_EDGE_RUN       (TRIGGER_ANGLE_BTDC - ADVANCE_BTDC)        // edge->spark, running
+#define AFTER_EDGE_CRANK     (TRIGGER_ANGLE_BTDC - CRANK_ADVANCE_BTDC)  // edge->spark, cranking
 
 #define DWELL_US             3000UL   // D514A ~3 ms
 #define MAX_DWELL_US         5000UL   // watchdog: never charge longer than this
@@ -85,6 +101,8 @@ void wdt_early_disable(void){
 #define DWELL_TICKS          US_TO_TICKS(DWELL_US)
 #define PERIOD_MIN_TICKS     US_TO_TICKS(6000UL)      // ~10000 rpm ceiling
 #define PERIOD_MAX_TICKS     US_TO_TICKS(1100000UL)   // ~54.5rpm floor (uint32_t compare)
+#define CRANK_PERIOD_TICKS   US_TO_TICKS(60000000UL / CRANK_RPM)   // period at CRANK_RPM; slower
+                                                                    // (larger period) -> cranking retard
 
 /* ---- LED/coil pin (D5 = PE3) ---- */
 #define COIL_DDR   DDRE
@@ -217,8 +235,11 @@ ISR(TIMER5_CAPT_vect){
   phasePeriod = (uint32_t)np;
   phaseExt    = predicted + (residual >> PLL_KP_SHIFT);
 
-  // Schedule this rev's LED pulse off the MODEL anchor, not the raw (jittery) edge.
-  uint32_t fracTicks = phasePeriod * AFTER_EDGE_DEG / 360UL;
+  // Schedule this rev's spark off the MODEL anchor, not the raw (jittery) edge.
+  // Cranking retard: below CRANK_RPM (period longer than CRANK_PERIOD_TICKS) fire at
+  // the near-TDC crank advance; above it, the running advance.
+  uint16_t afterEdge = (phasePeriod > CRANK_PERIOD_TICKS) ? AFTER_EDGE_CRANK : AFTER_EDGE_RUN;
+  uint32_t fracTicks = phasePeriod * afterEdge / 360UL;
   uint32_t sparkExt  = phaseExt + fracTicks;
   uint32_t delayExt  = sparkExt - capExt;      // ticks from now to spark
   if (delayExt == 0 || delayExt > 0xFFFFUL){
@@ -262,9 +283,10 @@ ISR(TIMER5_COMPA_vect){
 void setup(){
   Serial.begin(115200);
   Serial.println(F("one_cyl_ignition LANDMARK-PLL experiment build"));
-  Serial.print(F("timing: AFTER_EDGE_DEG=")); Serial.print(AFTER_EDGE_DEG);
-  Serial.print(F(" TRIGGER_ANGLE_BTDC=")); Serial.print(TRIGGER_ANGLE_BTDC);
-  Serial.print(F(" ADVANCE_BTDC=")); Serial.println(ADVANCE_BTDC);
+  Serial.print(F("timing: TRIGGER_ANGLE_BTDC=")); Serial.print(TRIGGER_ANGLE_BTDC);
+  Serial.print(F(" run_adv=")); Serial.print(ADVANCE_BTDC);
+  Serial.print(F(" crank_adv=")); Serial.print(CRANK_ADVANCE_BTDC);
+  Serial.print(F(" below_rpm=")); Serial.println(CRANK_RPM);
 
   COIL_DDR |= _BV(COIL_BIT);
   COIL_LOW();
