@@ -242,6 +242,44 @@ If the ground fix doesn't fully resolve the noise, two sensor-hardware alternati
 - **Revive the old 12-1 magnet wheel + single Hall sensor**, originally built for a Speeduino attempt on this engine. That attempt stalled on Speeduino needing a separate cam sensor to disambiguate a 3-cylinder crank — a problem specific to Speeduino's 4-stroke-oriented decoder architecture, not to this engine (a two-stroke fires every revolution, so there's no 4-stroke half-speed cam ambiguity to resolve) or to this project's firmware (each board already knows its own cylinder from wiring, not from decoding cylinder identity out of a shared signal). Reviving it here wouldn't hit the same wall, but it's still the bigger change: one shared crank sensor instead of three independent per-cylinder ones (a Hall sensor failure now stalls all three cylinders, not one — a real regression from the "Why the boards are identical" fault-isolation argument above, unless the single Hall output is fanned out to all three boards, each computing its own TDC independently), plus new firmware for missing-tooth sync detection and per-board TDC-offset constants (the boards would no longer be byte-identical, same as the per-cylinder-advance-curve roadmap item below).
 - **1 magnet + 3 Hall sensors** — closer to the stock Yamaha trigger config, and a much smaller change than the wheel: same one-trigger-per-cylinder-per-rev physical layout as the current VR coils, just a Hall sensor instead of a VR coil at each of the three existing sensor positions. No cam sync, no per-board TDC redesign, and it sidesteps the same ground-loop/analog-noise class of problem the wheel option does. It would also simplify the firmware: a Hall sensor sees the magnet pass as a single clean high period, not a leading-edge-plus-echo, so most of the "twin pulse" handling (bugs #5, #8, #9, #10, #11, #12 above) wouldn't apply to a from-scratch Hall version — the rate-of-change gate, 16-bit capture aliasing fix, watchdog races, and prescaler floor (bugs #1–#4, #6) would still be relevant since those are general timer/capture robustness, not VR-specific.
 
+## Landmark decoder — recovering VR sync at cranking (experiment branch, 2026-07-31)
+
+Lives in `one_cyl_ignition_landmark/` on branch `experiment/longest-pulse-landmark` (not merged; master still holds the production firmware). This is the firmware answer to the starter-cranking failure documented above — an alternative to the Hall swap.
+
+**The idea.** The production decoder fails at starter speed because its blank window (`lastPeriod/2`) is shorter than the conditioner's multi-edge burst, so a trailing burst edge leaks past and mis-syncs. But every revolution contains **one uniquely-large rising-to-rising interval** (~90 ms at ~370 rpm — the long-HIGH span, ~2.5× any other interval in the rev). Keying sync on that *shape* landmark instead of a time-blank gives one un-spoofable reference per rev. No dual-edge capture is needed: the single rising-edge interval already spans the long HIGH. Offline analysis of the `vr_logger` captures showed that landmark recurs at a stable ~370 rpm (period CV ~8 %), so a decoder locked to it would sync cleanly where the production decoder can't.
+
+**Tuning progression (all bench-cranked on the real starter, LED then coil):**
+
+| Version | Change | Result |
+|---|---|---|
+| v1 | landmark sync via the uniquely-large interval | true rpm, but ~32 % single-rev "hops" (refBig spiking on irregular revs) |
+| v2 | cap refBig rise ≤25 %/edge | firings tight (356 ± 5 rpm) but frequent unsync → misses revs |
+| v3 | sticky sync + persist refBig across stall | fires more, but preserves a corrupted anchor → wrong-rpm sparks (SD 140) |
+| v4 | predictive window (only a landmark near the predicted time may move the anchor) | 48 fired, 384 ± 11 rpm — clean *and* frequent, but still anchored to the **raw** edge |
+| **v5** | **dead-reckoning PLL** | fires off a smoothed **model**, not the raw edge — bounded scatter, no wrong-angle sparks |
+
+An anti-correlation test on the v4 log (long revs systematically followed by short ones summing to ~2× the period) proved the raw edge still jitters ±one burst-position (~24–30 ms ≈ ±68°) at rough cranking — about half real starter torque-pulse speed variation, half landmark hop, and the two can't be fully separated from the signal alone. So anchoring the spark to the raw edge (v1–v4) fires ~40 % of revs at a wrong angle — a real-coil hazard.
+
+**v5 dead-reckoning PLL (current).** Keeps a crank phase/period **model** and fires *every rev off the model*, not the raw edge. Each accepted landmark only nudges the model — phase by `residual>>3` (⅛), frequency by `residual>>5` (1/32) — so a single hopped edge moves the spark by only ~⅛ of the hop while a sustained real speed change still tracks in a few revs. `n`-rounding absorbs a genuinely missed landmark (fire on rev N+1 with n=2 instead of mis-locking); a 0.6·P refractory ignores extra/early edges so it never double-fires; >3·P since a model landmark means it's lost → re-acquire. Leaning on the model is also the *safe* choice at cranking: worst case is a few degrees of scatter, never a wild wrong-angle spark.
+
+Bench result (LED, real starter, `bench_logs/starter_landmark_pll_2026-07-31.txt`): model rpm smooth to ~2 rpm/rev steps, signed residual centered (+2 ms, 43 late / 43 early → no bias), fires every rev, one clean re-lock at a 1.24 s pause. Raw edges still jitter ~24 ms median (inherent VR-at-cranking burst ambiguity); the PLL attenuates that to ~±3 ms (±7° crank, ±16° worst) spark scatter.
+
+**Key finding — it cleans up with rpm.** On a faster crank (~463 rpm, `bench_logs/timinglight_coil_2026-07-31.txt`) the residual dropped to **under 1 ms** (vs ~24 ms at ~350 rpm). This is the predicted VR behavior — output amplitude ∝ rpm — and strongly suggests the residual cranking jitter largely evaporates at running speed. It is the main reason this firmware path looks viable rather than a dead end.
+
+### Timing-light / strobe calibration (in progress)
+
+The landmark edge's **true crank angle is not yet calibrated** — `edgeToSpark` is consistent rev-to-rev but its BTDC value is unverified, so `AFTER_EDGE_DEG` (currently 315) still has to be dialed in with a timing light. Status as of 2026-07-31:
+
+- **No-fuel coil test works.** With the coil on pin 5 (and the mandatory 10 kΩ pin-5→GND pulldown, placed at the coil end so a loose signal wire still holds the trigger low), cranking produces a strong white spark every rev. With no fuel there's no combustion, so a wrong-angle spark is harmless — this is the standard no-fuel bench test, safe to run while the angle is still unverified.
+- **A standard inductive timing light would not trigger** on the D514A smart coil at cranking rate (powered, clamped correctly, arrow toward plug, still no flash) — the smart coil's HT pulse and the low, irregular ~7–8 sparks/sec are a poor match for the inductive pickup.
+- **Built an MCU strobe instead** (pin 6, `STROBE_*`): a short flash at the exact spark instant (`COMPA`), for reading the flywheel marks like a timing light without depending on the inductive pickup. A boot self-test blinks pin 6 six times so the wiring can be verified without cranking. **Open issue:** 3 white LEDs driven directly off pin 6 through 100 Ω each draw ~54 mA total — over the pin's limit, so they sag and read too dim to use. **Next session:** drive them from the 12 V rail through an NPN transistor (pin 6 → 1 kΩ → base; LEDs from +12 V through ~200 Ω each → collector → emitter → GND), or use a single LED direct. Then read the fired advance, compute the correction, and set `AFTER_EDGE_DEG`.
+
+### Remaining gates before this replaces the production decoder
+
+1. Get the strobe bright enough, read the fired advance, and **calibrate `AFTER_EDGE_DEG`** to the target BTDC.
+2. **Characterize at higher rpm** (spin faster than cranking) — confirm the residual jitter largely vanishes as predicted.
+3. **Port the landmark PLL into production `one_cyl_ignition.ino`** (it currently lives only in the debug-style experiment sketch, which drives an LED/strobe and prints telemetry).
+
 ## Future EFI option (Speeduino) — under consideration, not decided
 
 One direction being weighed for adding fuel injection: keep ignition entirely on the current 3 independent MCUs (unchanged), and add Speeduino purely for EFI — fuel maps and injector scheduling only, with its ignition output channels left unconfigured/unwired. This would preserve the ignition system's fault isolation (see "Why the boards are identical" above) instead of moving spark control into a centralized ECU.
@@ -253,6 +291,7 @@ Open questions if this path is taken:
 
 ## Roadmap
 
+- **Finish the landmark-decoder path** (see "Landmark decoder" above, on branch `experiment/longest-pulse-landmark`): get the calibration strobe bright enough, set `AFTER_EDGE_DEG` from a timing-light/strobe reading, characterize at higher rpm, then port the v5 PLL into production `one_cyl_ignition.ino`. This is the current front-runner for making the existing VR hardware work at cranking, ahead of the Hall swap.
 - **Verify the ground-loop fix** (single-point ground at the flywheel-casing bolt, see "Starter-cranking noise investigation" above) actually cleans up the VR signal under real starter cranking. If it doesn't, fall back to the 1-magnet/3-Hall-sensor swap discussed there before reviving the full 12-1 wheel.
 - **Confirm actual starter cranking rpm is reliably above ~50 rpm** (see "Known hardware limitation" above) — the single most important pre-fuel check given the current trigger angle, though this should be a very comfortable margin for any real starter.
 - Verify `TRIGGER_ANGLE_BTDC` and `ADVANCE_BTDC` per cylinder with a timing light before running on fuel.

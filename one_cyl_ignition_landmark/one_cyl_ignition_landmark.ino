@@ -93,6 +93,17 @@ void wdt_early_disable(void){
 #define COIL_HIGH() (COIL_PORT |=  _BV(COIL_BIT))
 #define COIL_LOW()  (COIL_PORT &= ~_BV(COIL_BIT))
 
+/* ---- timing-light STROBE pin (D6 = PH3) ----
+ * A short bright flash at the exact spark instant, for reading the flywheel timing
+ * marks like a timing light without depending on the inductive pickup triggering on
+ * the smart coil's HT pulse. Wire a bright LED (+series R) from D6 to GND. */
+#define STROBE_DDR   DDRH
+#define STROBE_PORT  PORTH
+#define STROBE_BIT   PH3
+#define STROBE_HIGH() (STROBE_PORT |=  _BV(STROBE_BIT))
+#define STROBE_LOW()  (STROBE_PORT &= ~_BV(STROBE_BIT))
+#define STROBE_US     1000UL         // flash width (~2.8 deg at 460rpm; wider = easier to see)
+
 /* ---- shared state ---- */
 volatile uint32_t timerHigh      = 0;
 volatile uint32_t lastCaptureExt = 0;   // 32-bit extended tick of the previous edge (any)
@@ -104,6 +115,8 @@ volatile bool     synced         = false;
 volatile bool     coilCharging   = false;
 volatile uint32_t coilHighMicros = 0;
 volatile uint32_t lastEdgeMicros = 0;
+volatile bool     strobeActive   = false;   // strobe LED currently lit
+volatile uint32_t strobeHighMicros = 0;      // when it was lit, to time its width in loop()
 
 /* ---- debug telemetry ---- */
 #define DBG_NONE      0
@@ -234,19 +247,32 @@ ISR(TIMER5_COMPB_vect){
   coilCharging=true; coilHighMicros=micros();
 }
 
-/* ---- spark ---- */
+/* ---- spark (coil fires here; also kick the timing-light strobe) ---- */
 ISR(TIMER5_COMPA_vect){
   TIMSK5 &= ~_BV(OCIE5A);
   COIL_LOW();
   coilCharging=false;
+  STROBE_HIGH();
+  strobeActive=true; strobeHighMicros=micros();
 }
 
 void setup(){
   Serial.begin(115200);
   Serial.println(F("one_cyl_ignition LANDMARK-PLL experiment build"));
+  Serial.print(F("timing: AFTER_EDGE_DEG=")); Serial.print(AFTER_EDGE_DEG);
+  Serial.print(F(" TRIGGER_ANGLE_BTDC=")); Serial.print(TRIGGER_ANGLE_BTDC);
+  Serial.print(F(" ADVANCE_BTDC=")); Serial.println(ADVANCE_BTDC);
 
   COIL_DDR |= _BV(COIL_BIT);
   COIL_LOW();
+  STROBE_DDR |= _BV(STROBE_BIT);
+  STROBE_LOW();
+  // Strobe/wiring self-test: 6 clearly-visible blinks at boot, so pin 6 + the LED
+  // wiring can be verified WITHOUT cranking. The real strobe is only 300us and is
+  // nearly invisible to the eye -- during cranking, watch the marks it lights, not
+  // the LED itself.
+  for (uint8_t i=0; i<6; i++){ STROBE_HIGH(); delay(90); STROBE_LOW(); delay(90); }
+
   DDRL &= ~_BV(PL1);                 // ICP5 (pin 48) input
 
   cli();
@@ -306,6 +332,12 @@ void printDebug(){
 void loop(){
   wdt_reset();
   uint32_t now = micros();
+
+  // End the strobe flash a fixed width after the spark instant (non-blocking).
+  if (strobeActive && (int32_t)(now - strobeHighMicros) > (int32_t)STROBE_US){
+    STROBE_LOW();
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ strobeActive=false; }
+  }
 
   bool charging; uint32_t highAt;
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ charging=coilCharging; highAt=coilHighMicros; }
