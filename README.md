@@ -314,23 +314,35 @@ plan captured separately; summary:
   re-conditioning the VR. (Moving ignition onto Speeduino fed one-pulse-per-rev would inherit
   the same once-per-rev precision limit *and* lose fault isolation — no gain.)
 
+**Board:** Speeduino **v0.4.4d** (on hand, Arduino-Mega-based like our ignition boards). Covers
+a lot out of the box: **onboard MAP** (MPX4250 — no MAP to source), **4 injector channels with
+onboard drivers** (use 3, batch), 4 ignition channels left unwired, and CLT/IAT/TPS inputs.
+
 **Architecture:**
-- **Trigger:** a **buffered / opto-isolated** once-per-rev pulse from our ignition into
-  Speeduino's crank input. For first-fire, tap the existing **pin-5 coil-trigger** edge (zero
-  firmware; the ~5–15° advance movement is negligible for fuel). Isolation is mandatory — don't
-  let Speeduino's wiring couple back into the VR reference (the ground-loop lesson). Fits
-  Speeduino's **Basic Distributor** trigger mode (N clean pulses/rev, no cam) directly.
-- **Injectors:** injectors only on the bodies → Speeduino's built-in drivers, **batch** (all
-  fire together once/rev — plenty to start a two-stroke). Confirm injector impedance (high-Z →
-  direct; low-Z → peak-and-hold/ballast).
+- **Trigger:** a once-per-rev pulse from our ignition (tap the **pin-5 coil-trigger** edge, zero
+  firmware; the ~5–15° advance movement is negligible for fuel) into the 0.4.4's **Hall/logic**
+  trigger input — **not** through the board's onboard VR conditioner (MAX9926); our signal is
+  already clean, so set the trigger to Hall in TunerStudio and wire to the logic input. Fits
+  Speeduino's **Basic Distributor** mode (N clean pulses/rev, no cam) directly.
+- **Grounding — direct-first, verify, opto as fallback:** a direct wire needs a shared ground,
+  which risks Speeduino's injector/pump switching current coupling back into the VR reference.
+  So: run Speeduino's high-current grounds (injectors, fuel pump) **straight to battery negative**
+  and share only a light signal ground MCU↔Speeduino; then **watch the landmark telemetry with
+  Speeduino powered and injecting** — if the VR signal stays clean, done. Only if noise reappears,
+  drop in an optocoupler (a single 6N137/PC817 + resistors, not a board) to break the ground tie.
+- **Injectors:** injectors only on the bodies → the 0.4.4's onboard drivers, **batch** (all fire
+  together once/rev — plenty to start a two-stroke). Onboard drivers suit **high-Z** injectors;
+  confirm impedance (low-Z → ballast resistors / peak-and-hold).
 - **Oiling:** premix **marine TCW-3** in the tank, injected with the fuel — lubricates the
   crankcase exactly as the carbs did. Testing-grade (2-stroke oil can varnish injectors / isn't
   ideal for an EFI pump long-term); revisit for a permanent install.
 - **Control:** fixed cranking pulsewidth + prime + after-start enrichment, trimmed live in
   TunerStudio. No VE table needed to catch.
 
-**Have:** HP pump/regulator/rail/filter/plumbing, throttle bodies + injectors. **Need:** a
-Speeduino board, a buffer/opto for the trigger, injector impedance confirmed, MAP + temp sensor.
+**Have:** HP pump/regulator/rail/filter/plumbing, throttle bodies + injectors, **Speeduino v0.4.4d**
+(with onboard MAP). **Need:** confirm **injector impedance** (high-Z vs low-Z), a **CLT temp
+sensor** for cranking enrichment (IAT optional), and an **optocoupler on the shelf** as the
+grounding fallback (only fitted if the telemetry shows VR noise).
 
 **De-risking order:** wire and prove the *trigger* first (crank with no fuel/coil, confirm
 TunerStudio reads steady rpm) before touching fuel — that isolates the riskiest integration
