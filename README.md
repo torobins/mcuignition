@@ -2,6 +2,21 @@
 
 Standalone electronic ignition for a 3-cylinder two-stroke engine, built from three identical Arduino Mega 2560 boards — one per cylinder. Each board reads its own VR (pulse coil) sensor, cleans up the trigger signal internally, and fires a smart ignition coil at a fixed advance angle. No shared "cleaner" board and no cross-wiring between cylinders — every board is a complete, self-sufficient ignition channel.
 
+## Current status & next steps (2026-08-01)
+
+**Where things stand — a clean pick-up point across sessions/machines.**
+
+- **Ignition:** working on the **landmark PLL decoder** (branch `experiment/longest-pulse-landmark`, sketch `one_cyl_ignition_landmark/`). It defeats the messy VR-at-cranking signal that the production decoder couldn't (full story under "Landmark decoder"). **Calibrated** (`TRIGGER_ANGLE_BTDC=330`), **cranking retard** verified (fires near TDC at cranking, 15° above 500 rpm), **safety-reviewed** (max-advance clamp added, boot delay gated off). Bench-validated on the real starter + real coil, **not yet run on fuel**. `master` still holds the older production sketch (which fails at starter) — the PLL still needs porting there once proven on fuel.
+- **EFI (to get it started):** decided — **Speeduino, fuel-only**, fed a clean once-per-rev pulse from our ignition (details under "EFI (Speeduino, fuel-only)"). Board on hand is a **Speeduino v0.4.4d** (genuine Mega, onboard MAP). Fuel supply (pump/reg/rail/filter/plumbing) and throttle bodies + injectors are ready.
+
+**Immediate next actions:**
+1. **Verify the Speeduino board in TunerStudio** (Windows). On 2026-08-01 it enumerated on Linux as a genuine Mega 2560 (`/dev/ttyACM0`) but **did not respond to Speeduino serial queries from the CLI** at 115200/9600 — likely the genuine-Mega reset-on-open/handshake, or the firmware from the earlier *stalled* Speeduino attempt needs reflashing. TunerStudio is the authoritative check: if it connects and shows the dashboard, note the firmware version + any existing trigger/injector config; if it won't connect, reflash a current Speeduino build.
+2. **Finish the carb rebuild** (fuel-system prerequisite for a start attempt).
+3. **Confirm injector impedance** (high-Z → 0.4.4 drives direct; low-Z → ballast/PnH) and **get a CLT thermistor** for cranking enrichment.
+4. **Then integrate, trigger-first:** buffer our pin-5 pulse → the 0.4.4 Hall/logic input, crank with no fuel/coil, confirm steady rpm in TunerStudio *and* that our landmark telemetry stays clean (grounding check) — before touching fuel.
+
+**Key pointers:** ignition sketch `one_cyl_ignition_landmark/one_cyl_ignition_landmark.ino`; ignition board = CH340 clone Mega on `/dev/ttyUSB0` (Linux); Speeduino = genuine Mega on `/dev/ttyACM0`; flash cmd `arduino-cli upload -p <port> --fqbn arduino:avr:mega:cpu=atmega2560 one_cyl_ignition_landmark`.
+
 ## Why the boards are identical
 
 Each board only ever needs to know one thing: the angle from *its own* sensor edge to *its own* cylinder's TDC. Because the three pulse coils are mounted 120° apart on the crank, and the three TDCs are also 120° apart, the offset is the same for every cylinder — the 120° cancels out of the math. The firmware is therefore identical on all three boards; the only thing that makes "board 2" fire "cylinder 2" is that it's plugged into cylinder 2's sensor and cylinder 2's coil.
