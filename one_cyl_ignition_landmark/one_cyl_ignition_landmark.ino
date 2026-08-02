@@ -25,12 +25,24 @@
  * Leaning on the model is also the safe choice at cranking: worst case is a few
  * degrees of timing scatter, never a wild wrong-angle spark.
  *
- * DIAGNOSTIC ONLY: pin 5 drives an LED (no coil this run). The landmark edge's true
- * crank angle is NOT yet calibrated — read edgeToSpark as consistency, not correct
- * BTDC. Same 15ms WDT + MAX_DWELL safety envelope as production is kept regardless.
+ * STATUS (2026-08-01): bench-validated on the real starter with the real Dyna D514A
+ * coil — confirmed spark every rev. Timing CALIBRATED: with a charged battery
+ * (steady ~436rpm crank) the strobe put the fixed-15 build at ~15deg BTDC, so
+ * TRIGGER_ANGLE_BTDC=330 is correct (calibration is speed-independent geometry). The
+ * cranking retard below is verified working — spark sits in a ~0-15deg BTDC window
+ * near TDC at cranking (kickback-safe). NOT yet started on fuel (carbs off); the
+ * running advance (ADVANCE_BTDC) still gets its final dial-in at idle with a timing
+ * light. Same 15ms WDT + MAX_DWELL safety envelope as production.
+ *
+ * This is still the experiment/debug build: it also drives a calibration STROBE on
+ * D6/D7/D8 (flash at the spark instant, for reading flywheel marks) and prints
+ * telemetry. Once proven on fuel, port the decoder into production one_cyl_ignition.ino.
  *
  *   VR sensor -> conditioner -> ICP5 (pin 48, Timer5 capture, rising edges)
- * HARDWARE: 10k from pin 5 to GND at the pin (holds output OFF through reset).
+ *   spark: Dyna D514A smart coil on pin 5 (HIGH=charge, LOW=fire)
+ * HARDWARE: 10k from pin 5 to GND at the coil end (holds the coil trigger OFF through
+ * reset/brownout even if the signal wire is loose; an LED is NOT a substitute -- it's
+ * a diode, open below its forward voltage, so it can't hold the line low).
  */
 #include <avr/io.h>
 #include <avr/interrupt.h>
