@@ -10,7 +10,7 @@ Standalone electronic ignition for a 3-cylinder two-stroke engine, built from th
 - **EFI (to get it started):** decided — **Speeduino, fuel-only**, fed a clean once-per-rev pulse from our ignition (details under "EFI (Speeduino, fuel-only)"). Board on hand is a **Speeduino v0.4.4d** (genuine Mega, onboard MAP). Fuel supply (pump/reg/rail/filter/plumbing) and throttle bodies + injectors are ready.
 
 **Immediate next actions:**
-1. **Verify the Speeduino board in TunerStudio** (Windows). On 2026-08-01 it enumerated on Linux as a genuine Mega 2560 (`/dev/ttyACM0`) but **did not respond to Speeduino serial queries from the CLI** at 115200/9600 — likely the genuine-Mega reset-on-open/handshake, or the firmware from the earlier *stalled* Speeduino attempt needs reflashing. TunerStudio is the authoritative check: if it connects and shows the dashboard, note the firmware version + any existing trigger/injector config; if it won't connect, reflash a current Speeduino build.
+1. **Verify the Speeduino board in TunerStudio** (Windows). On 2026-08-01 it enumerated on Linux as a genuine Mega 2560 (`/dev/ttyACM0`) but **did not respond to Speeduino serial queries from the CLI** at 115200/9600 — likely the genuine-Mega reset-on-open/handshake, or the firmware from the earlier *stalled* Speeduino attempt needs reflashing. TunerStudio is the authoritative check: if it connects and shows the dashboard, note the firmware version + any existing trigger/injector config; if it won't connect, reflash a current Speeduino build. Two untested CLI tools are ready for this (see "Speeduino serial monitoring tools" below): `tools/speeduino_monitor.py` for a quick RPM/MAP/etc probe alongside TunerStudio, `tools/composite_logger.py` for raw trigger-edge data with TunerStudio closed.
 2. **Finish the carb rebuild** (fuel-system prerequisite for a start attempt).
 3. **Confirm injector impedance** (high-Z → 0.4.4 drives direct; low-Z → ballast/PnH) and **get a CLT thermistor** for cranking enrichment.
 4. **Then integrate, trigger-first:** buffer our pin-5 pulse → the 0.4.4 Hall/logic input, crank with no fuel/coil, confirm steady rpm in TunerStudio *and* that our landmark telemetry stays clean (grounding check) — before touching fuel.
@@ -368,6 +368,36 @@ Speeduino) for a reference that doesn't move with spark advance.
 A single shared magnet/wheel feeding 3 Hall sensors (see "Alternative sensor architectures") would
 also feed Speeduino's Basic Distributor mode directly and could retire the landmark decoder — but
 that's a bigger sensor-hardware rebuild, not the get-it-started path.
+
+## Speeduino serial monitoring tools (`tools/`)
+
+Two Python scripts (pyserial) for watching Speeduino telemetry during bench tests, added
+2026-08-02. Neither has been run against the actual board yet — both are traced from the
+`speeduino/speeduino` firmware source, not confirmed against Todd's board's actual firmware
+responses. First real run doubles as the still-open "does the board respond to serial queries"
+check from "Immediate next actions" above.
+
+- **`tools/speeduino_monitor.py`** — polls the **secondary** serial port (Serial3,
+  `secondarySerialProtocol = "Generic (Fixed List)"`) for RPM/MAP/CLT/battery/advance/TPS via the
+  `'A'` command, reusing the same protocol/offsets as the `speeduino-dash` ESP32 project. Safe to
+  run **alongside TunerStudio** — the secondary port's command set is deliberately restricted and
+  doesn't conflict with a TunerStudio session on USB.
+  ```
+  python tools/speeduino_monitor.py COM7
+  ```
+- **`tools/composite_logger.py`** — talks to the **primary/USB** port instead, using `'J'`/`'T'`/`'j'`
+  to arm and stream the composite trigger logger: 127 timestamped edges per read, each with
+  pri/sec/cam pin state, which trigger fired, and sync status. This is the crank-signal-level view
+  (vs. the aggregate RPM the secondary port gives), useful for cross-checking against `vr_logger`
+  captures and the landmark decoder's own timing. **Requires TunerStudio closed** — only one client
+  can hold the primary port, and the secondary port's protocol never implements tooth/composite
+  logging regardless of its configured mode (confirmed by reading `comms_secondary.cpp`: even
+  "TunerStudio protocol on secondary" mode works by redirecting the single global primary-serial
+  handle, not by adding a second concurrent channel, so it's not safe to combine with a live
+  TunerStudio session on USB either).
+  ```
+  python tools/composite_logger.py COM5
+  ```
 
 ## Roadmap
 
