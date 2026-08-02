@@ -75,6 +75,13 @@ void wdt_early_disable(void){
 #define CRANK_ADVANCE_BTDC   5        // near-TDC advance used below CRANK_RPM
 #define CRANK_RPM            500      // crank/run switchover speed
 
+/* SAFETY: hard ceiling on spark advance. Normal operation (5/15 deg) never reaches
+ * it; it only bites when a wrong/lagging model would schedule a far-advanced spark
+ * (e.g. a hard deceleration the ÷32 frequency loop hasn't tracked yet, which would
+ * otherwise fire well BTDC into a kickback). The clamp is computed from the ACTUAL
+ * measured rev time, not the model, so it holds even when the model is wrong. */
+#define MAX_ADVANCE_BTDC     25       // never fire more advanced than this (deg BTDC)
+
 #define AFTER_EDGE_RUN       (TRIGGER_ANGLE_BTDC - ADVANCE_BTDC)        // edge->spark, running
 #define AFTER_EDGE_CRANK     (TRIGGER_ANGLE_BTDC - CRANK_ADVANCE_BTDC)  // edge->spark, cranking
 
@@ -136,6 +143,10 @@ void wdt_early_disable(void){
 #define STROBE_HIGH() (STROBE_PORT |=  STROBE_MASK)
 #define STROBE_LOW()  (STROBE_PORT &= ~STROBE_MASK)
 #define STROBE_US     1000UL         // flash width (~2.8 deg at 460rpm; wider = easier to see)
+#define STROBE_BOOT_TEST 0           // 1 = ~1s of blinks at boot to verify LED wiring without
+                                     // cranking. KEEP 0 for any run near fuel: the blocking
+                                     // delay is ~1s of dead ignition on every reset/brownout,
+                                     // long enough to stall a running engine.
 
 /* ---- shared state ---- */
 volatile uint32_t timerHigh      = 0;
@@ -252,6 +263,14 @@ ISR(TIMER5_CAPT_vect){
   // the near-TDC crank advance; above it, the running advance.
   uint16_t afterEdge = (phasePeriod > CRANK_PERIOD_TICKS) ? AFTER_EDGE_CRANK : AFTER_EDGE_RUN;
   uint32_t fracTicks = phasePeriod * afterEdge / 360UL;
+
+  // SAFETY max-advance clamp: floor fracTicks so the spark can't fire more advanced
+  // than MAX_ADVANCE_BTDC. Reference is the ACTUAL measured rev time (delta/n, n>=1),
+  // NOT the model, so a wrong/lagging model can't defeat it. Larger fracTicks = later
+  // = more retarded = the safe direction; we only ever push retard here, never advance.
+  uint32_t minFrac = (delta / n) * (uint32_t)(TRIGGER_ANGLE_BTDC - MAX_ADVANCE_BTDC) / 360UL;
+  if (fracTicks < minFrac) fracTicks = minFrac;
+
   uint32_t sparkExt  = phaseExt + fracTicks;
   uint32_t delayExt  = sparkExt - capExt;      // ticks from now to spark
   if (delayExt == 0 || delayExt > 0xFFFFUL){
@@ -304,11 +323,14 @@ void setup(){
   COIL_LOW();
   STROBE_DDR |= STROBE_MASK;
   STROBE_LOW();
-  // Strobe/wiring self-test: 6 clearly-visible blinks at boot, so pin 6 + the LED
-  // wiring can be verified WITHOUT cranking. The real strobe is only 300us and is
-  // nearly invisible to the eye -- during cranking, watch the marks it lights, not
-  // the LED itself.
+#if STROBE_BOOT_TEST
+  // Strobe/wiring self-test: 6 clearly-visible blinks at boot, so the LED wiring can be
+  // verified WITHOUT cranking. DISABLED by default -- this blocks ~1s, which is ~1s of
+  // dead ignition on every reset (would stall a running engine). Enable only for bench
+  // wiring bring-up (STROBE_BOOT_TEST 1). The real strobe is only 1ms and near-invisible
+  // to the eye anyway -- during cranking, watch the marks it lights, not the LED.
   for (uint8_t i=0; i<6; i++){ STROBE_HIGH(); delay(90); STROBE_LOW(); delay(90); }
+#endif
 
   DDRL &= ~_BV(PL1);                 // ICP5 (pin 48) input
 

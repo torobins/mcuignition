@@ -282,6 +282,21 @@ The landmark edge's **true crank angle is not yet calibrated** — `edgeToSpark`
 2. **Characterize at higher rpm** (spin faster than cranking) — confirm the residual jitter largely vanishes as predicted.
 3. **Port the landmark PLL into production `one_cyl_ignition.ino`** (it currently lives only in the debug-style experiment sketch, which drives an LED/strobe and prints telemetry).
 
+### Safety review (2026-08-01)
+
+A pass focused on engine-damage / kickback failure modes. The core protections are sound: stuck-coil overcharge is layered (`MAX_DWELL` 5 ms + WDT 15 ms + `STALL` 3 s all force the coil low), reset/brownout lands in a safe state (pin-5 pulldown + `COIL_LOW()` in setup + re-sync-before-fire), and the scheduling math is range-checked. Two fixes were made immediately; the rest are tracked here.
+
+**Fixed:**
+- **Max-advance safety clamp.** `fracTicks` is now floored so the spark can never fire more advanced than `MAX_ADVANCE_BTDC` (25°), and the floor is computed from the *actual measured* rev time (`delta/n`), not the model — so a wrong or lagging model (e.g. a hard deceleration the ÷32 frequency loop hasn't caught) can't schedule a far-BTDC kickback spark. Normal 5°/15° operation never reaches the clamp.
+- **Boot delay gated off.** The ~1 s blocking strobe self-test (dead ignition on every reset → would stall a running engine) is now behind `STROBE_BOOT_TEST`, default `0`. Enable only for bench wiring bring-up.
+
+**Still open (address before sustained running, not blocking a first start):**
+- **Cranking-retard decision uses the model period, not actual speed** (`phasePeriod > CRANK_PERIOD_TICKS`). On a hard decel a lagging model can stay in "run" (15°) while actually slow. The max-advance clamp now bounds the worst case, but the retard test should ideally key off measured `delta`.
+- **A `MAX_DWELL` trip forces `COIL_LOW` = an uncontrolled-angle spark** (~1/150 revs observed). Can't avoid the discharge on an inductive coil, so the goal is to eliminate the *trips* — likely root cause is the compare-just-passed race in the immediate-charge path (`OCR5A` written, then flags cleared, then `OCIE5A` enabled; if `TCNT5` passes in the gap the match is missed until a ~1 s wrap). Harden the write/enable ordering.
+- **Slow accel tracking (÷32)** lags the catch → retarded/ATDC sparks during rev-up (errs safe, but sluggish). Consider a faster `KF` or an accel feedforward.
+- **Acquisition could lock a wrong (intra-burst/half-rev) period.** Low probability, strobe-visible, retard-bounded — add an rpm-plausibility cross-check to harden.
+- This whole telemetry/strobe **experiment build should be ported to production `one_cyl_ignition.ino`** before it's the thing running on fuel long-term.
+
 ## Future EFI option (Speeduino) — under consideration, not decided
 
 One direction being weighed for adding fuel injection: keep ignition entirely on the current 3 independent MCUs (unchanged), and add Speeduino purely for EFI — fuel maps and injector scheduling only, with its ignition output channels left unconfigured/unwired. This would preserve the ignition system's fault isolation (see "Why the boards are identical" above) instead of moving spark control into a centralized ECU.
