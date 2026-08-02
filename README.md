@@ -297,18 +297,55 @@ A pass focused on engine-damage / kickback failure modes. The core protections a
 - **Acquisition could lock a wrong (intra-burst/half-rev) period.** Low probability, strobe-visible, retard-bounded — add an rpm-plausibility cross-check to harden.
 - This whole telemetry/strobe **experiment build should be ported to production `one_cyl_ignition.ino`** before it's the thing running on fuel long-term.
 
-## Future EFI option (Speeduino) — under consideration, not decided
+## EFI (Speeduino, fuel-only) — decided 2026-08-01
 
-One direction being weighed for adding fuel injection: keep ignition entirely on the current 3 independent MCUs (unchanged), and add Speeduino purely for EFI — fuel maps and injector scheduling only, with its ignition output channels left unconfigured/unwired. This would preserve the ignition system's fault isolation (see "Why the boards are identical" above) instead of moving spark control into a centralized ECU.
+Adding fuel injection via the fitted Daytona throttle bodies + injectors, to get the engine
+started. **Decision: ignition stays entirely on the 3 MCUs; add Speeduino for FUEL ONLY**,
+triggered by a clean once-per-rev signal *from our ignition output*. Full build/verification
+plan captured separately; summary:
 
-Open questions if this path is taken:
-- Speeduino still needs its own crank/rpm reference to schedule injection, even without controlling spark. Injection timing tolerance is generally looser than spark timing for a 2-stroke, so it doesn't need the same angular precision the ignition boards do, but it needs something. Tapping the same physical trigger signal the ignition boards use (rather than adding a second dedicated wheel) is the likely path.
-- If tapping the same signal, the tap needs to be buffered/isolated (e.g. a unity buffer or optocoupler) rather than simply spliced on — otherwise Speeduino's own wiring/grounding becomes a new coupling path back into the ignition boards' sensor reference, the same class of problem as the ground-loop investigation above.
-- A single shared magnet/wheel feeding 3 Hall sensors (see "Alternative sensor architectures considered" above) would map cleanly onto Speeduino's **Basic Distributor** trigger mode if ever needed for the EFI side — that mode expects exactly N pulses per revolution (one per cylinder), no missing tooth, no cam signal, which fits a 3-cylinder 2-stroke directly. The 3 Hall outputs would need to be combined onto Speeduino's single crank-input pin — trivial if the Hall ICs are open-collector (wire all three to one line with a shared pull-up), otherwise diode-OR'd.
+**Why fuel-only, not Speeduino-does-everything:**
+- The earlier 3-cyl ignition trouble was almost certainly the messy VR-conditioner signal —
+  the landmark decoder is what tames it, so keep the thing that solved it.
+- Speeduino can't do per-cylinder ignition timing; the independent boards can (roadmap).
+- Preserves the 3-board fault isolation instead of a single ECU controlling everything.
+- The VR burst can only be cleaned by the landmark logic (our firmware) — a dumb hardware
+  conditioner can't. So Speeduino's clean trigger *comes from our ignition's output*, not from
+  re-conditioning the VR. (Moving ignition onto Speeduino fed one-pulse-per-rev would inherit
+  the same once-per-rev precision limit *and* lose fault isolation — no gain.)
+
+**Architecture:**
+- **Trigger:** a **buffered / opto-isolated** once-per-rev pulse from our ignition into
+  Speeduino's crank input. For first-fire, tap the existing **pin-5 coil-trigger** edge (zero
+  firmware; the ~5–15° advance movement is negligible for fuel). Isolation is mandatory — don't
+  let Speeduino's wiring couple back into the VR reference (the ground-loop lesson). Fits
+  Speeduino's **Basic Distributor** trigger mode (N clean pulses/rev, no cam) directly.
+- **Injectors:** injectors only on the bodies → Speeduino's built-in drivers, **batch** (all
+  fire together once/rev — plenty to start a two-stroke). Confirm injector impedance (high-Z →
+  direct; low-Z → peak-and-hold/ballast).
+- **Oiling:** premix **marine TCW-3** in the tank, injected with the fuel — lubricates the
+  crankcase exactly as the carbs did. Testing-grade (2-stroke oil can varnish injectors / isn't
+  ideal for an EFI pump long-term); revisit for a permanent install.
+- **Control:** fixed cranking pulsewidth + prime + after-start enrichment, trimmed live in
+  TunerStudio. No VE table needed to catch.
+
+**Have:** HP pump/regulator/rail/filter/plumbing, throttle bodies + injectors. **Need:** a
+Speeduino board, a buffer/opto for the trigger, injector impedance confirmed, MAP + temp sensor.
+
+**De-risking order:** wire and prove the *trigger* first (crank with no fuel/coil, confirm
+TunerStudio reads steady rpm) before touching fuel — that isolates the riskiest integration
+point. Optional later: a dedicated fixed-angle once-per-rev pulse output in the ignition firmware
+(toggle a spare pin at the landmark; put it in all boards to stay byte-identical, wire one to
+Speeduino) for a reference that doesn't move with spark advance.
+
+A single shared magnet/wheel feeding 3 Hall sensors (see "Alternative sensor architectures") would
+also feed Speeduino's Basic Distributor mode directly and could retire the landmark decoder — but
+that's a bigger sensor-hardware rebuild, not the get-it-started path.
 
 ## Roadmap
 
 - **Finish the landmark-decoder path** (see "Landmark decoder" above, on branch `experiment/longest-pulse-landmark`): get the calibration strobe bright enough, set `AFTER_EDGE_DEG` from a timing-light/strobe reading, characterize at higher rpm, then port the v5 PLL into production `one_cyl_ignition.ino`. This is the current front-runner for making the existing VR hardware work at cranking, ahead of the Hall swap.
+- **Add Speeduino fuel-only EFI to get it started** (see "EFI (Speeduino, fuel-only)" above): buffer/opto a once-per-rev pulse from our ignition → Speeduino; batch injectors; premix TCW-3 oiling; trim a cranking pulse live to catch. Prove the trigger first (steady rpm in TunerStudio, no fuel/coil). Gated on the carb rebuild + acquiring a Speeduino.
 - **Verify the ground-loop fix** (single-point ground at the flywheel-casing bolt, see "Starter-cranking noise investigation" above) actually cleans up the VR signal under real starter cranking. If it doesn't, fall back to the 1-magnet/3-Hall-sensor swap discussed there before reviving the full 12-1 wheel.
 - **Confirm actual starter cranking rpm is reliably above ~50 rpm** (see "Known hardware limitation" above) — the single most important pre-fuel check given the current trigger angle, though this should be a very comfortable margin for any real starter.
 - Verify `TRIGGER_ANGLE_BTDC` and `ADVANCE_BTDC` per cylinder with a timing light before running on fuel.
