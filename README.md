@@ -2,18 +2,19 @@
 
 Standalone electronic ignition for a 3-cylinder two-stroke engine, built from three identical Arduino Mega 2560 boards — one per cylinder. Each board reads its own VR (pulse coil) sensor, cleans up the trigger signal internally, and fires a smart ignition coil at a fixed advance angle. No shared "cleaner" board and no cross-wiring between cylinders — every board is a complete, self-sufficient ignition channel.
 
-## Current status & next steps (2026-08-01)
+## Current status & next steps (2026-08-02)
 
 **Where things stand — a clean pick-up point across sessions/machines.**
 
 - **Ignition:** working on the **landmark PLL decoder** (branch `experiment/longest-pulse-landmark`, sketch `one_cyl_ignition_landmark/`). It defeats the messy VR-at-cranking signal that the production decoder couldn't (full story under "Landmark decoder"). **Calibrated** (`TRIGGER_ANGLE_BTDC=330`), **cranking retard** verified (fires near TDC at cranking, 15° above 500 rpm), **safety-reviewed** (max-advance clamp added, boot delay gated off). Bench-validated on the real starter + real coil, **not yet run on fuel**. `master` still holds the older production sketch (which fails at starter) — the PLL still needs porting there once proven on fuel.
-- **EFI (to get it started):** decided — **Speeduino, fuel-only**, fed a clean once-per-rev pulse from our ignition (details under "EFI (Speeduino, fuel-only)"). Board on hand is a **Speeduino v0.4.4d** (genuine Mega, onboard MAP). Fuel supply (pump/reg/rail/filter/plumbing) and throttle bodies + injectors are ready.
+- **EFI trigger: DONE and bench-proven (2026-08-02).** Speeduino is running fuel-only off a **3-pulse-per-rev trigger synthesised on ignition pin D9** (see "EFI trigger output" below). Reads true crank rpm (~368), zero sync losses, and **injection is confirmed commanded on all 3 channels off our trigger**. This closes the trigger-first integration gate.
+- **EFI remaining work is sensor calibration, not integration** — every analog input currently reads invalid (see "Sensor punch-list" below). All bench work, no cranking needed.
 
 **Immediate next actions:**
-1. **Verify the Speeduino board in TunerStudio** (Windows). On 2026-08-01 it enumerated on Linux as a genuine Mega 2560 (`/dev/ttyACM0`) but **did not respond to Speeduino serial queries from the CLI** at 115200/9600 — likely the genuine-Mega reset-on-open/handshake, or the firmware from the earlier *stalled* Speeduino attempt needs reflashing. TunerStudio is the authoritative check: if it connects and shows the dashboard, note the firmware version + any existing trigger/injector config; if it won't connect, reflash a current Speeduino build. Two untested CLI tools are ready for this (see "Speeduino serial monitoring tools" below): `tools/speeduino_monitor.py` for a quick RPM/MAP/etc probe alongside TunerStudio, `tools/composite_logger.py` for raw trigger-edge data with TunerStudio closed.
+1. **Fix the sensor inputs** (see "Sensor punch-list"), in priority order: battery voltage sense, MAP, TPS calibration, CLT thermistor, IAT. Until these are real, the fuel calculation is meaningless (currently `Gammae` pegged at 1500%, PW clamped at 16.88 ms).
 2. **Finish the carb rebuild** (fuel-system prerequisite for a start attempt).
-3. **Confirm injector impedance** (high-Z → 0.4.4 drives direct; low-Z → ballast/PnH) and **get a CLT thermistor** for cranking enrichment.
-4. **Then integrate, trigger-first:** buffer our pin-5 pulse → the 0.4.4 Hall/logic input, crank with no fuel/coil, confirm steady rpm in TunerStudio *and* that our landmark telemetry stays clean (grounding check) — before touching fuel.
+3. **Confirm injector impedance** — wiki threshold is **High-Z >8Ω** (drives direct); low-Z needs series resistors per injector or the drivers will be damaged.
+4. **Then attempt a start** — fixed cranking pulsewidth + prime, trimmed live in TunerStudio.
 
 **Key pointers:** ignition sketch `one_cyl_ignition_landmark/one_cyl_ignition_landmark.ino`; ignition board = CH340 clone Mega on `/dev/ttyUSB0` (Linux); Speeduino = genuine Mega on `/dev/ttyACM0`; flash cmd `arduino-cli upload -p <port> --fqbn arduino:avr:mega:cpu=atmega2560 one_cyl_ignition_landmark`.
 
@@ -368,6 +369,75 @@ Speeduino) for a reference that doesn't move with spark advance.
 A single shared magnet/wheel feeding 3 Hall sensors (see "Alternative sensor architectures") would
 also feed Speeduino's Basic Distributor mode directly and could retire the landmark decoder — but
 that's a bigger sensor-hardware rebuild, not the get-it-started path.
+
+## EFI trigger output — built and bench-proven 2026-08-02
+
+**The plan above said to tap pin 5 from all three boards into a diode-OR. That's not what was
+built.** Speeduino's Basic Distributor decoder sets `triggerActualTeeth = nCylinders`, so it
+expects **3 evenly-spaced pulses per crank revolution** — one per cylinder, as a real distributor
+would produce. Feeding it a single board's once-per-rev pulse made it read ~1/3 of true speed
+(the ~122-150 rpm seen against a true ~370).
+
+Rather than wire all three boards together, **one board synthesises all 3 pulses** by subdividing
+its own PLL-tracked rev period on **D9 (PH6)**. Speeduino only counts pulses, so it can't tell the
+difference — and this works with a single board on the bench, needs no diode-OR, and could stay
+the permanent architecture (fewer parts, no cross-board wiring, and the sub-pulses come from one
+already-smoothed model rather than three independently-tracking boards).
+
+**Wiring:** `D9 -> 1N5817 anode, cathode -> Speeduino D19 (CAS/trigger input)`, with a 10k pulldown
+from the shared node to ground. TunerStudio: Trigger Pattern **Basic Distributor**, Trigger edge
+**RISING**, Trigger Filter **Medium**, Engine Stroke **Two-stroke**, 3 cylinders. Injector Layout
+**Sequential** is correct here — Speeduino special-cases two-strokes (`init.cpp`: 0/120/240° over
+`CRANK_ANGLE_MAX_INJ = 360`), and the cam requirement that applies to 4-stroke sequential doesn't,
+because a two-stroke fires every rev so there's no 720° ambiguity to resolve. (Fallback if it ever
+won't sync: switch Layout to **Paired**, same 0/120/240 angles.)
+
+**Two firmware iterations — the second matters:**
+- **v1 re-anchored the train to the raw landmark edge each rev.** This leaked raw-edge jitter
+  straight back in, which is precisely what the v5 PLL exists to reject. Signature in
+  `bench_logs/efi_trigger_v1_anchored_2026-08-02.csv`: 16 of 18 long intervals immediately
+  cancelled by a short one (~±6 ms, ~13 crank degrees of displacement), 9.27% stdev, one dropped
+  pulse, and a recovery gap **3.5% off Speeduino's trigger-filter reject threshold** (Medium =
+  50% of previous gap) — i.e. close to cascading into sync loss.
+- **v2 takes only the PERIOD from the model and free-runs**, never re-anchoring to an edge, with a
+  catch-up guard so a late `loop()` re-bases rather than rapid-firing a backlog (a pulse burst is
+  exactly what the trigger filter rejects). Absolute phase drifts slowly, which is fine — Basic
+  Distributor only counts pulses, it doesn't use them for ignition timing.
+
+**Measured (v2, `bench_logs/efi_trigger_v2_freerun_2026-08-02.csv` and the 20:35/20:40 captures):**
+
+| | v1 | v2 |
+|---|---|---|
+| interval stdev | 9.27% | **0.01%** (7.9 µs over 40 steady intervals) |
+| worst filter ratio | 0.518 (near reject) | **0.862** |
+| dropped pulses | 1 in 179 | **0** |
+| Sync Loss # | — | **0** over a full crank |
+| rpm | 370.2 | 368 (true ~370) |
+
+**Gotcha when reading composite logs:** the composite buffer holds 127 entries and stops recording
+until TunerStudio reads it out, so apparent 270-330 ms "dropouts" appear at buffer boundaries.
+In the 20:35 capture there were exactly 3, against 497 logged edges = 3.9 buffer fills. They are
+logging artifacts, not signal loss — confirmed by `Sync Loss # = 0` in the parallel datalog, and by
+the fact that a real 331 ms gap would have exceeded `MAX_STALL_TIME` (~222 ms for this config) and
+dropped sync.
+
+## Sensor punch-list (blocking a start attempt, 2026-08-02)
+
+Datalog `2026-08-02_20.40.21.msl` confirmed **injection is commanded on all 3 channels off our
+trigger** (PW1/2/3 firing, rpm 339-408). But every analog input reads invalid, so the fuel
+calculation is currently meaningless — `Gammae` (total enrichment) pegged at **1500%** and PW
+clamped flat at **16.88 ms**:
+
+| Channel | Reads | Should read | Note |
+|---|---|---|---|
+| Battery V | **2.00 V** flat | ~12 V (~10 V cranking) | drives `Gbattery = 255%` (byte max) — injector dead-time comp maxed out. **Biggest single PW inflator; wiring/cal, not a missing sensor.** |
+| MAP | **0 kPa** flat | ~100 kPa at rest | board has onboard MPX4250 — not configured or wrong input. Drives `Gbaro = 255%` |
+| TPS | **22%** closed | 0% | **Control Algorithm is Alpha-N (TPS)**, so TPS *directly* drives fuelling — wrong table region entirely |
+| CLT | **1 °C** flat | ambient | no thermistor fitted yet |
+| IAT | **419** | ambient | no sensor — drives `Gair = 255%`; fit one or disable the correction |
+
+`Gbattery`/`Gair`/`Gbaro` all sitting at exactly **255** is byte-maximum saturation, not a real
+correction — a symptom of invalid inputs rather than genuine enrichment demand.
 
 ## Speeduino serial monitoring tools (`tools/`)
 
