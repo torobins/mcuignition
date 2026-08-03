@@ -13,7 +13,7 @@ Standalone electronic ignition for a 3-cylinder two-stroke engine, built from th
 - **Carbs are OUT (2026-08-02).** The throttle body mounts directly to the intake — the carb rebuild is no longer a prerequisite for anything. This removes what had been the main blocker on a start attempt.
 
 **Immediate next actions:**
-1. **Confirm injector impedance** — wiki threshold is **High-Z >8Ω** (drives direct); low-Z needs series resistors per injector or the drivers will be damaged. NOTE: an injector clicking in Hardware Test mode does **not** prove this — low-Z injectors click fine and then cook the driver thermally under sustained operation.
+1. **~~Confirm injector impedance~~ — DONE 2026-08-02: 10.5Ω, High-Z, drives direct.** Measured 11.3Ω minus 0.8Ω meter-lead resistance; all three identical (so no damaged injector). ~1.14 A each, well inside the onboard drivers, and at cranking the 39 ms pulses sit ~53 ms apart so they never overlap. (Note for future reference: an injector clicking in Hardware Test mode does **not** prove impedance is safe — low-Z injectors click fine and then cook the driver thermally under sustained operation. Always measure.)
 2. **Put injector +12V on a relay** (ignition-switched, fused) before introducing fuel. Currently fed direct from the battery, which leaves the injectors permanently live — a driver that fails shorted would dump fuel with the key off.
 3. **Plumb the fuel system**, then **attempt a start.** Flood clear is configured at 75% TPS if it floods.
 4. **Re-crank and confirm PW ≈ 32.8 ms** after the Required Fuel correction (10.8 → 9.0 ms, see "Required Fuel" below).
