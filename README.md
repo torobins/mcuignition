@@ -9,13 +9,14 @@ Standalone electronic ignition for a 3-cylinder two-stroke engine, built from th
 - **Ignition:** working on the **landmark PLL decoder** (branch `experiment/longest-pulse-landmark`, sketch `one_cyl_ignition_landmark/`). It defeats the messy VR-at-cranking signal that the production decoder couldn't (full story under "Landmark decoder"). **Calibrated** (`TRIGGER_ANGLE_BTDC=330`), **cranking retard** verified (fires near TDC at cranking, 15° above 500 rpm), **safety-reviewed** (max-advance clamp added, boot delay gated off). Bench-validated on the real starter + real coil, **not yet run on fuel**. `master` still holds the older production sketch (which fails at starter) — the PLL still needs porting there once proven on fuel.
 - **EFI trigger: DONE and bench-proven (2026-08-02).** Speeduino is running fuel-only off a **3-pulse-per-rev trigger synthesised on ignition pin D9** (see "EFI trigger output" below). Reads true crank rpm (~368), zero sync losses, and **injection is confirmed commanded on all 3 channels off our trigger**. This closes the trigger-first integration gate.
 - **EFI sensors + enrichment: FULLY VALIDATED 2026-08-02.** Every analog input reads correctly, all four fuel corrections at 100%, and all six corrupt enrichment tables rebuilt (see "Sensor punch-list" and "Enrichment tables"). Final crank log: rpm 375, CLT 82 °F, TPS 0%, `Gammae` 188% (= WUE 1.24 x cranking 1.50, as designed), PW 39.3 ms, duty 24.6%, **zero sync losses**.
+- **Required Fuel corrected 10.8 → 9.0 ms** (see "Required Fuel" below). Engine confirmed as **Yamaha 65U, 1176 cc**; injectors are **Daytona 675, ~330 cc/min @ 3 bar**. The calculator's inputs were garbage (350 cc / 30 cc/min) *and* never applied — the 10.8 was hand-entered. Expect PW ~32.8 ms / ~20.5% duty on the next crank.
 - **Carbs are OUT (2026-08-02).** The throttle body mounts directly to the intake — the carb rebuild is no longer a prerequisite for anything. This removes what had been the main blocker on a start attempt.
 
 **Immediate next actions:**
 1. **Confirm injector impedance** — wiki threshold is **High-Z >8Ω** (drives direct); low-Z needs series resistors per injector or the drivers will be damaged. NOTE: an injector clicking in Hardware Test mode does **not** prove this — low-Z injectors click fine and then cook the driver thermally under sustained operation.
 2. **Put injector +12V on a relay** (ignition-switched, fused) before introducing fuel. Currently fed direct from the battery, which leaves the injectors permanently live — a driver that fails shorted would dump fuel with the key off.
 3. **Plumb the fuel system**, then **attempt a start.** Flood clear is configured at 75% TPS if it floods.
-4. **Absolute fuel quantity is still unverified** — 39.3 ms is internally consistent (every correction verified) but whether it is the *right* mass depends on injector flow vs displacement, which only a start attempt answers.
+4. **Re-crank and confirm PW ≈ 32.8 ms** after the Required Fuel correction (10.8 → 9.0 ms, see "Required Fuel" below).
 
 **Key pointers:** ignition sketch `one_cyl_ignition_landmark/one_cyl_ignition_landmark.ino`; ignition board = CH340 clone Mega on `/dev/ttyUSB0` (Linux); Speeduino = genuine Mega on `/dev/ttyACM0`; flash cmd `arduino-cli upload -p <port> --fqbn arduino:avr:mega:cpu=atmega2560 one_cyl_ignition_landmark`.
 
@@ -519,9 +520,59 @@ PW **39.3 ms** steady across 157 samples, duty **24.6%** (limit 85%), **zero syn
 
 TunerStudio's PW gauge shows red above ~30 ms, but that is default gauge scaling for port
 injection — **duty cycle is the real constraint.** Long pulses are expected here: small motorcycle
-throttle-body injectors feeding a two-stroke that fires every revolution. Worth noting for later
-though — at 6000 rpm the revolution is only 10 ms, so even the un-enriched ~8.6 ms base would be
-~86% duty. **The injectors may be marginally sized for the top end.**
+throttle-body injectors feeding a two-stroke that fires every revolution.
+
+## Required Fuel — corrected 2026-08-02 (10.8 → 9.0 ms)
+
+**Hardware, finally pinned down:**
+- **Engine: Yamaha 65U — 1176 cc**, 3-cyl 2-stroke, 84 mm bore, non-power-valve 1200, 135 hp.
+- **Injectors: Triumph Daytona 675 (2009-2012) throttle bodies, ~330 cc/min @ 3 bar.** Community
+  bench-test figure — Triumph publishes nothing, the injectors are Bosch units made for them.
+  Flow scales with sqrt(pressure), so confirm the regulator setting before trusting it.
+
+**The Required Fuel calculator inputs were garbage AND unused:**
+
+| Field | Was | Now |
+|---|---|---|
+| Engine Displacement | **350** (looks like per-cylinder typed into a total field: 1176/3 = 392) | **1176** |
+| Injector Flow | **30 cc/min** (not a real injector — likely 30 lb/hr typed with cc/min selected) | **330** |
+| Cylinders / AFR | 3 / 13.0 | unchanged, both correct |
+
+**The 10.8 ms in the Required Fuel box never came from those inputs.** Running the physics on
+350/30 gives ~28.5 ms, nowhere near 10.8 — so 10.8 was a stale hand-entered value and the
+calculator fields were never applied. (An earlier estimate here that fuelling was "3.3x too rich"
+was wrong for exactly this reason: it assumed 10.8 derived from those inputs.)
+
+**9.0 ms is physically correct**, verified independently:
+`1176/3 = 392 cc/cyl x 1.184 g/L = 0.464 g air; /13.0 = 0.0357 g fuel;
+330 cc/min = 5.5 cc/s x 0.745 g/cc = 4.10 g/s; 0.0357/4.10 = 8.7 ms` ✓
+
+So the real change is **~17% leaner, not 3.3x**: cranking PW 39.3 → **~32.8 ms**, duty 24.6 → **~20.5%**.
+Fuelling was much closer to right than first thought.
+
+**Injector sizing check:** at 135 hp a two-stroke burns roughly 0.5-0.6 lb/hp/hr → ~230-275 cc/min
+per cylinder at full power = **70-84% duty against the 85% limit**. Adequate, but no spare capacity
+if more power is ever chased. Not a concern for starting.
+
+**Tuning discipline from here:** Required Fuel now genuinely describes the engine and injectors, so
+treat it as a fixed, known-good anchor and **do all fuel tuning in the VE table instead.** If the
+first start is rich, pull VE down in the low-rpm/low-load cells rather than trimming the 9.0.
+
+**On the VE table (uniform 80%):** fine to start on, and largely irrelevant at cranking anyway since
+375 rpm sits below its lowest RPM bin (800) and the cranking/WUE enrichments dominate. Expect to
+tune it heavily once running — a two-stroke's effective VE swings far more with rpm than a
+four-stroke's, since the expansion chamber genuinely stuffs charge back in near its tuned frequency
+(realistically ~50-60% down low, past 100% on the pipe). A flat table will be right at idle and
+wrong everywhere else.
+
+**No O2 sensor — deliberate.** A wideband in a water-injected marine two-stroke exhaust can't reach
+its ~350 °C light-off temperature, gets thermally shocked by steam, fouled by premix oil, and
+corroded by salt water. **EGT is the correct instrument for a two-stroke** (it is what kart/PWC/sled
+tuners actually use, not a fallback): mount **3-6 inches from the exhaust port, upstream of the
+water injection point** — downstream readings are meaningless. **Per-cylinder, not single-point**:
+on a 3-cylinder two-stroke a single lean cylinder is how a piston seizes, and a shared probe won't
+see it. Target roughly **1100-1250 °F at WOT**; a steady upward trend under load is the warning
+sign. This is consistent with the per-cylinder fault isolation the ignition side already has.
 
 ## Speeduino serial monitoring tools (`tools/`)
 
