@@ -8,13 +8,14 @@ Standalone electronic ignition for a 3-cylinder two-stroke engine, built from th
 
 - **Ignition:** working on the **landmark PLL decoder** (branch `experiment/longest-pulse-landmark`, sketch `one_cyl_ignition_landmark/`). It defeats the messy VR-at-cranking signal that the production decoder couldn't (full story under "Landmark decoder"). **Calibrated** (`TRIGGER_ANGLE_BTDC=330`), **cranking retard** verified (fires near TDC at cranking, 15° above 500 rpm), **safety-reviewed** (max-advance clamp added, boot delay gated off). Bench-validated on the real starter + real coil, **not yet run on fuel**. `master` still holds the older production sketch (which fails at starter) — the PLL still needs porting there once proven on fuel.
 - **EFI trigger: DONE and bench-proven (2026-08-02).** Speeduino is running fuel-only off a **3-pulse-per-rev trigger synthesised on ignition pin D9** (see "EFI trigger output" below). Reads true crank rpm (~368), zero sync losses, and **injection is confirmed commanded on all 3 channels off our trigger**. This closes the trigger-first integration gate.
-- **EFI fuel corrections: CLEAN as of 2026-08-02.** All four correction factors now read 100% (`Gammae` 1427 → **101**), PW is deterministic at 22.3 ms instead of clamped/saturated, zero sync losses. **Only CLT and TPS remain** (see "Sensor punch-list" below).
+- **EFI sensors + enrichment: FULLY VALIDATED 2026-08-02.** Every analog input reads correctly, all four fuel corrections at 100%, and all six corrupt enrichment tables rebuilt (see "Sensor punch-list" and "Enrichment tables"). Final crank log: rpm 375, CLT 82 °F, TPS 0%, `Gammae` 188% (= WUE 1.24 x cranking 1.50, as designed), PW 39.3 ms, duty 24.6%, **zero sync losses**.
+- **Carbs are OUT (2026-08-02).** The throttle body mounts directly to the intake — the carb rebuild is no longer a prerequisite for anything. This removes what had been the main blocker on a start attempt.
 
 **Immediate next actions:**
-1. **Wire TPS and fit a CLT thermistor** — the last two invalid inputs. TPS is the harder blocker: Control Algorithm is **Alpha-N (TPS)**, so TPS feeds the fuel table directly, and it currently floats at ~42%. CLT reads a floating 1 °C, which maxes out cranking enrichment.
-2. **Finish the carb rebuild** (fuel-system prerequisite for a start attempt).
-3. **Confirm injector impedance** — wiki threshold is **High-Z >8Ω** (drives direct); low-Z needs series resistors per injector or the drivers will be damaged.
-4. **Then attempt a start** — fixed cranking pulsewidth + prime, trimmed live in TunerStudio.
+1. **Confirm injector impedance** — wiki threshold is **High-Z >8Ω** (drives direct); low-Z needs series resistors per injector or the drivers will be damaged. NOTE: an injector clicking in Hardware Test mode does **not** prove this — low-Z injectors click fine and then cook the driver thermally under sustained operation.
+2. **Put injector +12V on a relay** (ignition-switched, fused) before introducing fuel. Currently fed direct from the battery, which leaves the injectors permanently live — a driver that fails shorted would dump fuel with the key off.
+3. **Plumb the fuel system**, then **attempt a start.** Flood clear is configured at 75% TPS if it floods.
+4. **Absolute fuel quantity is still unverified** — 39.3 ms is internally consistent (every correction verified) but whether it is the *right* mass depends on injector flow vs displacement, which only a start attempt answers.
 
 **Key pointers:** ignition sketch `one_cyl_ignition_landmark/one_cyl_ignition_landmark.ino`; ignition board = CH340 clone Mega on `/dev/ttyUSB0` (Linux); Speeduino = genuine Mega on `/dev/ttyACM0`; flash cmd `arduino-cli upload -p <port> --fqbn arduino:avr:mega:cpu=atmega2560 one_cyl_ignition_landmark`.
 
@@ -290,7 +291,7 @@ The landmark edge's **true crank angle is not yet calibrated** — `edgeToSpark`
 - **A standard inductive timing light would not trigger** on the D514A smart coil at cranking rate (powered, clamped correctly, arrow toward plug, still no flash) — the smart coil's HT pulse and the low, irregular ~7–8 sparks/sec are a poor match for the inductive pickup.
 - **Built an MCU strobe instead** (pin 6, `STROBE_*`): a short flash at the exact spark instant (`COMPA`), for reading the flywheel marks like a timing light without depending on the inductive pickup. A boot self-test blinks pin 6 six times so the wiring can be verified without cranking. **Open issue:** 3 white LEDs driven directly off pin 6 through 100 Ω each draw ~54 mA total — over the pin's limit, so they sag and read too dim to use. **Next session:** drive them from the 12 V rail through an NPN transistor (pin 6 → 1 kΩ → base; LEDs from +12 V through ~200 Ω each → collector → emitter → GND), or use a single LED direct. Then read the fired advance, compute the correction, and set `AFTER_EDGE_DEG`.
 
-**Update 2026-08-01 — calibration confirmed, cranking retard verified, ready to start.** With a charged cranking battery (steady ~436 rpm, vs the jittery low-battery read the night before), the strobe showed the fixed-15° build firing at ~15° BTDC — i.e. **`TRIGGER_ANGLE_BTDC=330` is correct**; the earlier "~30°" was low-battery noise. Flashing the cranking-retard build then retarded the cranking spark to a **0–15° BTDC window centered near TDC** (5° intended + cranking jitter) — kickback-safe and start-friendly, exactly as designed. The ignition side is now **calibrated and ready for a no-fuel→fuel start attempt**; next real step is blocked only on the fuel system (carb rebuild). After it starts and revs past 500 rpm it auto-advances to 15°, and the running advance gets dialed in at idle with a timing light (which should also trigger properly at running spark rates).
+**Update 2026-08-01 — calibration confirmed, cranking retard verified, ready to start.** With a charged cranking battery (steady ~436 rpm, vs the jittery low-battery read the night before), the strobe showed the fixed-15° build firing at ~15° BTDC — i.e. **`TRIGGER_ANGLE_BTDC=330` is correct**; the earlier "~30°" was low-battery noise. Flashing the cranking-retard build then retarded the cranking spark to a **0–15° BTDC window centered near TDC** (5° intended + cranking jitter) — kickback-safe and start-friendly, exactly as designed. The ignition side is now **calibrated and ready for a no-fuel→fuel start attempt**; next real step is blocked only on the fuel system (as of 2026-08-02 the carbs are gone entirely — throttle body direct to intake). After it starts and revs past 500 rpm it auto-advances to 15°, and the running advance gets dialed in at idle with a timing light (which should also trigger properly at running spark rates).
 
 ### Remaining gates before this replaces the production decoder
 
@@ -350,7 +351,7 @@ onboard drivers** (use 3, batch), 4 ignition channels left unwired, and CLT/IAT/
   together once/rev — plenty to start a two-stroke). Onboard drivers suit **high-Z** injectors;
   confirm impedance (low-Z → ballast resistors / peak-and-hold).
 - **Oiling:** premix **marine TCW-3** in the tank, injected with the fuel — lubricates the
-  crankcase exactly as the carbs did. Testing-grade (2-stroke oil can varnish injectors / isn't
+  crankcase exactly as the carbs did (carbs removed entirely 2026-08-02; throttle body direct to intake). Testing-grade (2-stroke oil can varnish injectors / isn't
   ideal for an EFI pump long-term); revisit for a permanent install.
 - **Control:** fixed cranking pulsewidth + prime + after-start enrichment, trimmed live in
   TunerStudio. No VE table needed to catch.
@@ -457,15 +458,70 @@ Three rounds of fixes, each verified by a fresh crank datalog:
   values 250/170/115/95/85/80 (≈110% at 13.2 V). Open Time only is both physically correct and a
   safer failure mode — a bad value scales ~1 ms of dead time, not the whole pulse.
 
-**Still outstanding — the only two left:**
+**TPS and CLT — both resolved later the same session:**
+- **TPS** wired and calibrated (Tools → Calibrate TPS), now reads **0% closed**, sweeps to 100%.
+  Identify the three leads with a meter, not by colour: the two wires whose mutual resistance
+  does **not** change as the throttle sweeps are the pot's end terminals (5V and ground); the
+  third is the wiper/signal. At closed throttle, the end with *lower* resistance to the wiper is
+  ground. Guessing risks putting 5V across near-zero ohms — a short across the 5V rail.
+- **CLT**: no thermistor on hand, so a **fixed resistor stands in for the sensor** (signal pin to
+  ground; the board supplies the pull-up). Calibrated via **Tools → Calibrate Temperature Sensors**
+  with bias **2490Ω** and a standard NTC curve, giving a stable **82 °F**.
 
-| Channel | Reads | Note |
+> **UNITS TRAP — cost real time.** TunerStudio's gauges and every enrichment table here are in
+> **Fahrenheit**, even though the thermistor calibration dialog has its own separate C/F radio
+> button. An early CLT reading of "88" was read as a wrong 88 °C when it was a perfectly correct
+> 88 °F (= 31 °C, exactly what the divider maths predicts for 2.2kΩ against a 2490Ω bias). That
+> sent us chasing a nonexistent bias-resistor fault. **Check units before diagnosing a temperature.**
+
+> **The fixed-resistor CLT is a bench stand-in, not a calibration.** It reports a constant ~82 °F,
+> so warmup enrichment will never taper as the engine actually warms. Fine for a start attempt;
+> replace with a real thermistor and recalibrate before running properly.
+
+## Enrichment tables — SIX found corrupt, all rebuilt 2026-08-02
+
+Beyond the sensor inputs, most of the tune's enrichment tables had never been initialised. Two
+distinct failure signatures, both worth recognising:
+
+1. **Degenerate bins** — every X-axis bin set to the same value (all `419`, all `-40`, all `25.5`).
+   A 2D lookup then cannot interpolate and returns the first value regardless of input. This is
+   why fixing the battery *reading* didn't move `Gbattery`: the injector voltage curve's bins were
+   all 25.5 V, so the lookup was degenerate no matter what the sensor said.
+2. **Byte-max garbage values** — `255`, `419`, `417`, `127.5` appearing as data.
+
+| Table | Was | Now |
 |---|---|---|
-| TPS | **~42%** floating | **The real blocker.** Control Algorithm is **Alpha-N (TPS)**, so TPS feeds the fuel table directly. Not yet wired. Calibrate via **Tools → Calibrate TPS** once connected. |
-| CLT | **1 °C** floating | No thermistor fitted. Cranking enrichment is temperature-driven, so this maxes out cold enrichment — likely why PW sits at 22.3 ms against a base of ~8.7 ms (10.8 reqFuel x 80% VE x 101%) + ~1.1 ms dead time. |
+| Injector voltage correction | all 255%, all bins 25.5 V, mode **Whole PW** | 250/170/115/95/85/80 over 6.0-22.0 V, mode **Open Time only** |
+| WUE (warmup) | all bins 419, flat 100% (= WUE OFF) | 220% at -38 °F tapering to 100% at 180 °F+ |
+| Cranking enrichment | flat 100% (no enrichment), top bin 417 | 240/180/140/100 over -38 to 190 °F |
+| ASE (afterstart) | all bins -40, all values 0 | 50/40/25/12% and 20/15/10/5 s over -40 to 190 °F, 5 s taper |
+| Priming pulsewidth | all bins -40, all 0 ms | 5.0/4.0/2.5/1.5 ms over -40 to 109 °F |
+| Flood clear level | **127.5%** — unreachable, TPS caps at 100% | **75%** |
 
-So **22.3 ms is not yet a "correct" number — it is merely no longer corrupted.** Both remaining
-inputs now have visible, quantifiable effects rather than being buried under saturated corrections.
+Notes:
+- **Flood clear at 127.5% could never trigger**, leaving no way to clear a flooded engine short of
+  pulling plugs — worth more than the prime pulse on a first start attempt.
+- **ASE at 0 is the classic "fires, runs half a second, dies" cause.** Worth having set before a
+  first attempt so a stall isn't misdiagnosed as bad base fuelling.
+- **Battery correction mode matters:** on **Whole PW** a 255% value multiplied the *entire*
+  pulsewidth (52.4 / 2.55 = 20.5, accounting for the blowup almost exactly). **Open Time only** is
+  both physically correct (voltage changes how fast an injector opens, not its flow) and a safer
+  failure mode — a bad value scales ~1 ms of dead time rather than the whole pulse.
+- **Set the top bin high (~190 °F), not at the axis default.** A 2D lookup *clamps* past its last
+  bin, so a cranking table ending at 110 °F would keep applying 120% enrichment to a hot restart.
+- **The VE table is fine** — a uniform 80% with properly populated axes is a normal untuned
+  starting point, not corruption. Note cranking (~375 rpm) sits below its lowest RPM bin (800), so
+  VE tuning won't affect cranking; Speeduino's cranking path has its own enrichment.
+
+**Final validation crank (`efi_all_sensors_valid_2026-08-02.msl`):** rpm 375, CLT 82 °F, TPS 0%,
+battery 12.1 V, `Gwarm` 124%, `Gammae` **188%** (= 1.24 x 1.50, exactly the designed stack),
+PW **39.3 ms** steady across 157 samples, duty **24.6%** (limit 85%), **zero sync losses**.
+
+TunerStudio's PW gauge shows red above ~30 ms, but that is default gauge scaling for port
+injection — **duty cycle is the real constraint.** Long pulses are expected here: small motorcycle
+throttle-body injectors feeding a two-stroke that fires every revolution. Worth noting for later
+though — at 6000 rpm the revolution is only 10 ms, so even the un-enriched ~8.6 ms base would be
+~86% duty. **The injectors may be marginally sized for the top end.**
 
 ## Speeduino serial monitoring tools (`tools/`)
 
@@ -500,7 +556,7 @@ check from "Immediate next actions" above.
 ## Roadmap
 
 - **Finish the landmark-decoder path** (see "Landmark decoder" above, on branch `experiment/longest-pulse-landmark`): get the calibration strobe bright enough, set `AFTER_EDGE_DEG` from a timing-light/strobe reading, characterize at higher rpm, then port the v5 PLL into production `one_cyl_ignition.ino`. This is the current front-runner for making the existing VR hardware work at cranking, ahead of the Hall swap.
-- **Add Speeduino fuel-only EFI to get it started** (see "EFI (Speeduino, fuel-only)" above): buffer/opto a once-per-rev pulse from our ignition → Speeduino; batch injectors; premix TCW-3 oiling; trim a cranking pulse live to catch. Prove the trigger first (steady rpm in TunerStudio, no fuel/coil). Gated on the carb rebuild + acquiring a Speeduino.
+- **~~Add Speeduino fuel-only EFI to get it started~~ — DONE 2026-08-02.** Trigger proven (D9 3-pulse/rev, zero sync losses), injection commanded on all 3 channels, all sensors + enrichment tables validated. See "EFI trigger output", "Sensor punch-list" and "Enrichment tables" above. Remaining: injector impedance check, relay for injector +12V, plumb fuel, attempt start.
 - **Verify the ground-loop fix** (single-point ground at the flywheel-casing bolt, see "Starter-cranking noise investigation" above) actually cleans up the VR signal under real starter cranking. If it doesn't, fall back to the 1-magnet/3-Hall-sensor swap discussed there before reviving the full 12-1 wheel.
 - **Confirm actual starter cranking rpm is reliably above ~50 rpm** (see "Known hardware limitation" above) — the single most important pre-fuel check given the current trigger angle, though this should be a very comfortable margin for any real starter.
 - Verify `TRIGGER_ANGLE_BTDC` and `ADVANCE_BTDC` per cylinder with a timing light before running on fuel.
