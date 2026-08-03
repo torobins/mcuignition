@@ -655,6 +655,54 @@ on a 3-cylinder two-stroke a single lean cylinder is how a piston seizes, and a 
 see it. Target roughly **1100-1250 °F at WOT**; a steady upward trend under load is the warning
 sign. This is consistent with the per-cylinder fault isolation the ignition side already has.
 
+## Cranking speed drives trigger quality — measured 2026-08-03
+
+Four telemetry captures of the landmark decoder (`bench_logs/ign_telemetry*.txt`,
+`starter_landmark_pll_2026-07-31.txt`, `calib_2026-08-01.txt`), all same firmware family:
+
+| session | mean rpm | rpm spread | residual stdev | edges/spark | clamped |
+|---|---|---|---|---|---|
+| 08-01 calibration | **437** | 33 | **47.6°** | — | — |
+| 08-03 charged | 384 | **21** | **43.1°** | 3.8 | 17% |
+| 07-31 | 366 | 57 | 75.3° | — | — |
+| 08-03 discharged | 385 | 54 | 86.7° | — | 40% |
+| 08-03 oiled + boost | **226** | 32 | 65.2° | **8.9** | 16% |
+
+**Cranking *steadiness* matters more than raw speed.** The discharged and charged runs had the same
+mean rpm (385 vs 384) but the charged run's spread was less than half — and residual stdev halved
+with it (86.7 → 43.1), while clamping fell 40% → 17%. A tired battery cranks unevenly, not just
+slowly.
+
+**Below ~250 rpm the trigger degrades badly.** Pre-lubing via the plug holes cut cranking to 226 rpm
+(liquid in the bores is real drag) and edges-per-spark more than doubled, 3.8 → 8.9, with `EARLY`
+events tripling. This is the original documented failure mode resurfacing: the VR burst has a fixed
+*duration*, so as rpm falls it occupies a larger share of each revolution and the decoder drowns in
+burst edges. Crank it through until the excess oil clears before drawing conclusions from a log.
+
+### The max-advance clamp explains "the strobe went jumpy"
+
+`MAX_ADVANCE_BTDC = 25` with `TRIGGER_ANGLE_BTDC = 330` means the clamp engages whenever the
+**measured** rev time exceeds the **model** period by more than **6.6%**:
+
+```
+minFrac   = (delta/n)   x (330-25)/360 = (delta/n)   x 0.847
+fracTicks = phasePeriod x 325/360      = phasePeriod x 0.903
+```
+
+At cranking, normal residual jitter exceeds that routinely, so the clamp fires on 17-40% of revs and
+pushes **retard** — the safe direction. Spark angle then reads 325-431° instead of a constant 325°.
+
+**This is not a regression.** The clamp was added in `242b44f`, *after* the 07-31 and 08-01 captures.
+Those sessions report `angle_stdev = 0.0` **by construction**: the old firmware always fired at
+exactly `AFTER_EDGE` of the model, so the telemetry could not reveal model-vs-reality divergence no
+matter how large (07-31 ran a residual stdev of 75°). The clamp is the first thing in this firmware
+that references measured crank position, so it is the first thing that can *show* that divergence.
+The underlying tracking on 08-03 charged (residual 43.1°) is the best of any session recorded.
+
+**Do not raise `MAX_ADVANCE_BTDC` to quieten the strobe.** It is 25° against an intended 5° cranking
+advance, and kickback is precisely the cranking-speed hazard it guards. Expect clamping to fall away
+once running above 500 rpm, where the engine turns far more steadily than on a starter.
+
 ## Speeduino serial monitoring tools (`tools/`)
 
 Two Python scripts (pyserial) for watching Speeduino telemetry during bench tests, added
