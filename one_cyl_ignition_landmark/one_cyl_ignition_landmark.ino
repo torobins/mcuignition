@@ -148,6 +148,45 @@ void wdt_early_disable(void){
                                      // delay is ~1s of dead ignition on every reset/brownout,
                                      // long enough to stall a running engine.
 
+/* ---- EFI trigger output (D9 = PH6) ----
+ * A once-per-rev-derived pulse train for Speeduino (fuel-only, see README "EFI").
+ * Speeduino's Basic Distributor decoder sets triggerActualTeeth = nCylinders, so on
+ * this 3-cylinder engine it expects THREE evenly-spaced pulses per crank revolution
+ * (it models a distributor with one lobe per cylinder). Rather than wiring all three
+ * ignition boards' outputs together through a diode-OR, ONE board synthesises all 3
+ * pulses by subdividing its own PLL-tracked rev period -- Speeduino only counts
+ * pulses, so it cannot tell the difference, and the sub-pulses come from a single
+ * already-smoothed model rather than three independently-tracking boards.
+ *
+ * Emitted from loop(), NOT a timer compare: Timer5's compare units are reserved for
+ * dwell/spark, and loop-polling jitter (a few us) is negligible against a rev period
+ * of tens of ms. This output is fully decoupled from the coil path -- it never
+ * touches COIL_*, OCR5A/B or the ignition watchdogs.
+ *
+ * FREE-RUNNING off the model (v2). The first version re-anchored the train to the raw
+ * landmark edge every rev, which leaked raw-edge jitter straight back into the output --
+ * the very thing the v5 PLL exists to reject. Bench log 2026-08-02_19.51.08 showed the
+ * signature clearly: 16 of 18 long intervals immediately cancelled by a short one
+ * (~+/-6ms, ~13 crank deg of displacement), plus a dropped pulse whose recovery gap
+ * landed 3.5% off Speeduino's Medium trigger-filter reject threshold (50% of the
+ * previous gap). So the train now only takes its PERIOD from the model and free-runs;
+ * it is never re-anchored to an edge. Absolute phase is then free to drift slowly,
+ * which is fine -- Basic Distributor only counts pulses, it does not use them for
+ * ignition timing. Free-running also rides through a missed landmark instead of
+ * leaving a gap.
+ *
+ * Wiring: D9 -> diode anode, cathode -> Speeduino trigger input (D19/CAS), with a
+ * 10k pulldown on the Speeduino side. Speeduino trigger edge = RISING. */
+#define EFI_DDR    DDRH
+#define EFI_PORT   PORTH
+#define EFI_BIT    PH6
+#define EFI_HIGH() (EFI_PORT |=  _BV(EFI_BIT))
+#define EFI_LOW()  (EFI_PORT &= ~_BV(EFI_BIT))
+#define EFI_PULSES_PER_REV  3        // = nCylinders, what Basic Distributor expects
+#define EFI_PULSE_US        500UL    // rising edge is what's timed; width just needs to
+                                     // be comfortably detectable. 500us stays <25% duty
+                                     // even at the PERIOD_MIN_TICKS rpm ceiling.
+
 /* ---- shared state ---- */
 volatile uint32_t timerHigh      = 0;
 volatile uint32_t lastCaptureExt = 0;   // 32-bit extended tick of the previous edge (any)
@@ -161,6 +200,15 @@ volatile uint32_t coilHighMicros = 0;
 volatile uint32_t lastEdgeMicros = 0;
 volatile bool     strobeActive   = false;   // strobe LED currently lit
 volatile uint32_t strobeHighMicros = 0;      // when it was lit, to time its width in loop()
+
+/* EFI pulse train. The schedule (below) is written by the capture ISR and consumed by
+ * loop(), so it needs atomic read-modify-write there. */
+volatile bool     efiTrainRunning    = false; // free-running once the model has locked
+volatile uint32_t efiNextPulseMicros = 0;   // when the next one is due
+volatile uint32_t efiPulseSpacingUs  = 0;   // model rev period / EFI_PULSES_PER_REV
+/* These two are touched ONLY by loop(), so they need no volatile/atomic guard. */
+bool     efiPulseActive     = false;        // EFI pin currently HIGH
+uint32_t efiPulseHighMicros = 0;            // when it went HIGH, to time its width
 
 /* ---- debug telemetry ---- */
 #define DBG_NONE      0
@@ -258,6 +306,15 @@ ISR(TIMER5_CAPT_vect){
   phasePeriod = (uint32_t)np;
   phaseExt    = predicted + (residual >> PLL_KP_SHIFT);
 
+  // EFI train: take only the PERIOD from the model. Deliberately does NOT re-anchor
+  // efiNextPulseMicros to this edge -- that is what injected raw-edge jitter in v1.
+  // The train is started once, on the first locked landmark, and free-runs thereafter.
+  efiPulseSpacingUs = (phasePeriod * US_PER_TICK) / EFI_PULSES_PER_REV;
+  if (!efiTrainRunning){
+    efiNextPulseMicros = micros();
+    efiTrainRunning    = true;
+  }
+
   // Schedule this rev's spark off the MODEL anchor, not the raw (jittery) edge.
   // Cranking retard: below CRANK_RPM (period longer than CRANK_PERIOD_TICKS) fire at
   // the near-TDC crank advance; above it, the running advance.
@@ -323,6 +380,8 @@ void setup(){
   COIL_LOW();
   STROBE_DDR |= STROBE_MASK;
   STROBE_LOW();
+  EFI_DDR |= _BV(EFI_BIT);
+  EFI_LOW();
 #if STROBE_BOOT_TEST
   // Strobe/wiring self-test: 6 clearly-visible blinks at boot, so the LED wiring can be
   // verified WITHOUT cranking. DISABLED by default -- this blocks ~1s, which is ~1s of
@@ -398,6 +457,33 @@ void loop(){
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ strobeActive=false; }
   }
 
+  // EFI trigger train: emit a pulse when one is due, then end it a fixed width later.
+  // The due-check and the schedule advance are one atomic RMW so a landmark ISR landing
+  // mid-check can't have its spacing update clobbered by a stale write-back.
+  bool efiDue = false;
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
+    if (efiTrainRunning && (int32_t)(now - efiNextPulseMicros) >= 0){
+      efiDue = true;
+      // Catch-up guard: if we're more than a full spacing late (a long ISR burst, or the
+      // model period just shrank sharply), re-base instead of rapid-firing the backlog --
+      // a burst of closely-spaced pulses is exactly what Speeduino's trigger filter
+      // rejects, and it would read as a false rpm spike.
+      if ((int32_t)(now - efiNextPulseMicros) > (int32_t)efiPulseSpacingUs){
+        efiNextPulseMicros = now + efiPulseSpacingUs;
+      } else {
+        efiNextPulseMicros += efiPulseSpacingUs;
+      }
+    }
+  }
+  if (efiDue){
+    EFI_HIGH();
+    efiPulseActive = true; efiPulseHighMicros = now;
+  }
+  if (efiPulseActive && (int32_t)(now - efiPulseHighMicros) > (int32_t)EFI_PULSE_US){
+    EFI_LOW();
+    efiPulseActive = false;
+  }
+
   bool charging; uint32_t highAt;
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ charging=coilCharging; highAt=coilHighMicros; }
   if (charging && (int32_t)(now - highAt) > (int32_t)MAX_DWELL_US){
@@ -416,7 +502,10 @@ void loop(){
     COIL_LOW();
     TIMSK5 &= ~(_BV(OCIE5A) | _BV(OCIE5B));
     // keep refBig warm across the stall; just drop the lock and acquisition state
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ coilCharging=false; synced=false; prevPeriod=0; }
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ coilCharging=false; synced=false; prevPeriod=0;
+                                       efiTrainRunning=false; }
+    EFI_LOW();                       // don't strand the EFI pin HIGH mid-pulse
+    efiPulseActive = false;
     if (!stallLatched && Serial.availableForWrite() >= (SERIAL_TX_BUFFER_SIZE - 1)){
       Serial.print(F("WATCHDOG: STALL gap_us=")); Serial.println((int32_t)(now - lastEdge));
       stallLatched = true;
