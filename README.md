@@ -29,6 +29,27 @@ This means:
 - A pre-flashed spare Mega can be swapped into any of the three positions.
 - The 120° cylinder phasing lives entirely in the wiring harness, not in the code. **Do not cross the harness connectors between cylinders.**
 
+### Pulser coil identification and positions (measured 2026-08-03)
+
+**Crank rotation: counter-clockwise.** Positions read off a degree wheel on the PTO, 0° = 12 o'clock:
+
+| Cylinder | Pulser wire | Position |
+|---|---|---|
+| 1 | **W/R** (white/red) | 180° |
+| 2 | **B/W** (black/white) | 300° |
+| 3 | **W/G** (white/green) | 60° |
+
+**Spacing measures exactly 120° / 120° / 120°** (60→180, 180→300, 300→60, summing to 360). This
+**verifies** the assumption the whole architecture rests on — previously listed in the Roadmap as
+*"assumed, should be checked."* Since the TDCs are 120° apart by crank geometry and the pulsers are
+too, the sensor-to-TDC offset is genuinely identical for every cylinder, so **one
+`TRIGGER_ANGLE_BTDC` is correct for all three boards** and the byte-identical firmware property
+holds. The strobe result on cylinder 1 (`TRIGGER_ANGLE_BTDC=330`) therefore transfers directly to
+cylinders 2 and 3.
+
+Use the wire colours to confirm harness routing before a start attempt: with even 120° spacing, a
+crossed connector puts that cylinder exactly 120° or 240° out.
+
 This holds for fixed timing (start/idle, all cylinders at the same advance). It stops holding once per-cylinder advance curves are added (see Roadmap).
 
 ## Hardware per channel
