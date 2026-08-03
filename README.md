@@ -394,6 +394,28 @@ from the shared node to ground. TunerStudio: Trigger Pattern **Basic Distributor
 because a two-stroke fires every rev so there's no 720° ambiguity to resolve. (Fallback if it ever
 won't sync: switch Layout to **Paired**, same 0/120/240 angles.)
 
+### Only ONE board feeds Speeduino — do NOT diode-OR all three
+
+All three boards run the **same firmware** and all three generate the D9 train unconditionally;
+**only one has its D9 wired** to Speeduino. The other two just run their own cylinder's ignition
+with D9 going nowhere. Nothing designates "the EFI board" in firmware — wiring alone decides — so
+the byte-identical invariant is preserved and a pre-flashed spare drops into any position,
+including the trigger-source one. (A compile-time flag or jumper would have broken that; hence it
+was written this way deliberately.)
+
+> **GOTCHA — this is the opposite of the original pin-5 plan, and looks like a sensible redundancy
+> upgrade until it isn't.** The *old* plan tapped **pin 5** from each board — **one** pulse/rev each
+> — and diode-OR'd them into the 3 pulses/rev Basic Distributor wants. The *current* design has each
+> board independently synthesising **all three** pulses/rev, free-running off its own PLL with **no
+> phase relationship to the other boards**. OR three of those together and you get up to **9
+> pulses/rev**, and Speeduino reads roughly **3x true rpm**. Wire exactly one.
+
+**Fault asymmetry worth knowing:** the trigger-source board is a single point of failure for
+*fuel* — if it dies, Speeduino loses its trigger and all three injectors stop, killing the engine
+outright. A failure on either of the other two costs only that cylinder's spark. This doesn't
+really regress anything (Speeduino was already central to fuel by choice), but it does mean the
+ignition side's per-cylinder fault isolation **stops at the fuel boundary**.
+
 **Two firmware iterations — the second matters:**
 - **v1 re-anchored the train to the raw landmark edge each rev.** This leaked raw-edge jitter
   straight back in, which is precisely what the v5 PLL exists to reject. Signature in
