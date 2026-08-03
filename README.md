@@ -16,7 +16,7 @@ Standalone electronic ignition for a 3-cylinder two-stroke engine, built from th
 1. **~~Confirm injector impedance~~ — DONE 2026-08-02: 10.5Ω, High-Z, drives direct.** Measured 11.3Ω minus 0.8Ω meter-lead resistance; all three identical (so no damaged injector). ~1.14 A each, well inside the onboard drivers, and at cranking the 39 ms pulses sit ~53 ms apart so they never overlap. (Note for future reference: an injector clicking in Hardware Test mode does **not** prove impedance is safe — low-Z injectors click fine and then cook the driver thermally under sustained operation. Always measure.)
 2. **Put injector +12V on a relay** (ignition-switched, fused) before introducing fuel. Currently fed direct from the battery, which leaves the injectors permanently live — a driver that fails shorted would dump fuel with the key off.
 3. **Plumb the fuel system**, then **attempt a start.** Flood clear is configured at 75% TPS if it floods.
-4. **Re-crank and confirm PW ≈ 32.8 ms** after the Required Fuel correction (10.8 → 9.0 ms, see "Required Fuel" below).
+4. **~~Re-crank and confirm PW~~ — DONE 2026-08-03.** Required Fuel 9.0 ms burned and verified: PW **33.1 ms**, duty **21.0%**, zero sync losses. This is the baseline configuration for a start attempt.
 
 **Key pointers:** ignition sketch `one_cyl_ignition_landmark/one_cyl_ignition_landmark.ino`; ignition board = CH340 clone Mega on `/dev/ttyUSB0` (Linux); Speeduino = genuine Mega on `/dev/ttyACM0`; flash cmd `arduino-cli upload -p <port> --fqbn arduino:avr:mega:cpu=atmega2560 one_cyl_ignition_landmark`.
 
@@ -585,7 +585,7 @@ TunerStudio's PW gauge shows red above ~30 ms, but that is default gauge scaling
 injection — **duty cycle is the real constraint.** Long pulses are expected here: small motorcycle
 throttle-body injectors feeding a two-stroke that fires every revolution.
 
-## Required Fuel — corrected 2026-08-02 (10.8 → 9.0 ms)
+## Required Fuel — corrected and VERIFIED (10.8 → 9.0 ms)
 
 **Hardware, finally pinned down:**
 - **Engine: Yamaha 65U — 1176 cc**, 3-cyl 2-stroke, 84 mm bore, non-power-valve 1200, 135 hp.
@@ -610,8 +610,26 @@ was wrong for exactly this reason: it assumed 10.8 derived from those inputs.)
 `1176/3 = 392 cc/cyl x 1.184 g/L = 0.464 g air; /13.0 = 0.0357 g fuel;
 330 cc/min = 5.5 cc/s x 0.745 g/cc = 4.10 g/s; 0.0357/4.10 = 8.7 ms` ✓
 
-So the real change is **~17% leaner, not 3.3x**: cranking PW 39.3 → **~32.8 ms**, duty 24.6 → **~20.5%**.
-Fuelling was much closer to right than first thought.
+So the real change is **~17% leaner, not 3.3x**.
+
+**Verified on the bench 2026-08-03** (`bench_logs/efi_reqfuel_9ms_2026-08-03.msl`):
+
+| | reqFuel 10.8 | reqFuel 9.0 (burned) |
+|---|---|---|
+| PW | 39.3 ms | **33.1 ms** (33.03-33.23 over 326 samples) |
+| Duty | 24.6% | **21.0%** |
+| RPM | 375 | 380 |
+| Sync Loss # | 0 | **0** |
+
+Ratio 33.13/39.24 = **0.844** vs the expected 9.0/10.8 = 0.833. The small excess is injector dead
+time — a constant added *after* the proportional term, so it doesn't scale. Backing it out gives a
+fixed ~2.6 ms, the right order for open time plus overheads.
+
+> **Gotcha: a value can read correctly in TunerStudio while the ECU still runs the old one.** The
+> first re-crank showed PW unchanged at 39.2 ms with the field displaying 9.0 — because it hadn't
+> been **burned**. Unburned values live in RAM and are lost on any reset, including a serial
+> reconnect. **Burn, then power-cycle, then re-crank** if you want to be certain you're testing
+> EEPROM. Flat-but-correct-looking behaviour after a settings change is the signature.
 
 **Injector sizing check:** at 135 hp a two-stroke burns roughly 0.5-0.6 lb/hp/hr → ~230-275 cc/min
 per cylinder at full power = **70-84% duty against the 85% limit**. Adequate, but no spare capacity
