@@ -8,10 +8,10 @@ Standalone electronic ignition for a 3-cylinder two-stroke engine, built from th
 
 - **Ignition:** working on the **landmark PLL decoder** (branch `experiment/longest-pulse-landmark`, sketch `one_cyl_ignition_landmark/`). It defeats the messy VR-at-cranking signal that the production decoder couldn't (full story under "Landmark decoder"). **Calibrated** (`TRIGGER_ANGLE_BTDC=330`), **cranking retard** verified (fires near TDC at cranking, 15° above 500 rpm), **safety-reviewed** (max-advance clamp added, boot delay gated off). Bench-validated on the real starter + real coil, **not yet run on fuel**. `master` still holds the older production sketch (which fails at starter) — the PLL still needs porting there once proven on fuel.
 - **EFI trigger: DONE and bench-proven (2026-08-02).** Speeduino is running fuel-only off a **3-pulse-per-rev trigger synthesised on ignition pin D9** (see "EFI trigger output" below). Reads true crank rpm (~368), zero sync losses, and **injection is confirmed commanded on all 3 channels off our trigger**. This closes the trigger-first integration gate.
-- **EFI remaining work is sensor calibration, not integration** — every analog input currently reads invalid (see "Sensor punch-list" below). All bench work, no cranking needed.
+- **EFI fuel corrections: CLEAN as of 2026-08-02.** All four correction factors now read 100% (`Gammae` 1427 → **101**), PW is deterministic at 22.3 ms instead of clamped/saturated, zero sync losses. **Only CLT and TPS remain** (see "Sensor punch-list" below).
 
 **Immediate next actions:**
-1. **Fix the sensor inputs** (see "Sensor punch-list"), in priority order: battery voltage sense, MAP, TPS calibration, CLT thermistor, IAT. Until these are real, the fuel calculation is meaningless (currently `Gammae` pegged at 1500%, PW clamped at 16.88 ms).
+1. **Wire TPS and fit a CLT thermistor** — the last two invalid inputs. TPS is the harder blocker: Control Algorithm is **Alpha-N (TPS)**, so TPS feeds the fuel table directly, and it currently floats at ~42%. CLT reads a floating 1 °C, which maxes out cranking enrichment.
 2. **Finish the carb rebuild** (fuel-system prerequisite for a start attempt).
 3. **Confirm injector impedance** — wiki threshold is **High-Z >8Ω** (drives direct); low-Z needs series resistors per injector or the drivers will be damaged.
 4. **Then attempt a start** — fixed cranking pulsewidth + prime, trimmed live in TunerStudio.
@@ -421,23 +421,51 @@ logging artifacts, not signal loss — confirmed by `Sync Loss # = 0` in the par
 the fact that a real 331 ms gap would have exceeded `MAX_STALL_TIME` (~222 ms for this config) and
 dropped sync.
 
-## Sensor punch-list (blocking a start attempt, 2026-08-02)
+## Sensor punch-list — mostly CLEARED 2026-08-02
 
 Datalog `2026-08-02_20.40.21.msl` confirmed **injection is commanded on all 3 channels off our
-trigger** (PW1/2/3 firing, rpm 339-408). But every analog input reads invalid, so the fuel
-calculation is currently meaningless — `Gammae` (total enrichment) pegged at **1500%** and PW
-clamped flat at **16.88 ms**:
+trigger** (PW1/2/3 firing). But every analog input initially read invalid, pegging every
+correction at 255% (byte-maximum saturation, not real enrichment demand) and clamping PW.
+Three rounds of fixes, each verified by a fresh crank datalog:
 
-| Channel | Reads | Should read | Note |
+| | orig (20:40) | +IAT/baro (21:18) | +inj V curve (21:25) |
 |---|---|---|---|
-| Battery V | **2.00 V** flat | ~12 V (~10 V cranking) | drives `Gbattery = 255%` (byte max) — injector dead-time comp maxed out. **Biggest single PW inflator; wiring/cal, not a missing sensor.** |
-| MAP | **0 kPa** flat | ~100 kPa at rest | board has onboard MPX4250 — not configured or wrong input. Drives `Gbaro = 255%` |
-| TPS | **22%** closed | 0% | **Control Algorithm is Alpha-N (TPS)**, so TPS *directly* drives fuelling — wrong table region entirely |
-| CLT | **1 °C** flat | ambient | no thermistor fitted yet |
-| IAT | **419** | ambient | no sensor — drives `Gair = 255%`; fit one or disable the correction |
+| `Gammae` | 1427.6 | 258.0 | **101.0** |
+| `Gbattery` | 255 | 255 | **100** |
+| `Gair` | 255 | 100 | **100** |
+| `Gbaro` | 255 | 100 | **100** |
+| PW | 16.1 ms *(clamped)* | 52.4 ms | **22.3 ms** |
+| Duty | 9.8% | 32.6% | **14.0%** |
+| Battery V | 2.0 | 12.0 | **12.2** |
+| Sync Loss # | 0 | 0 | **0** |
 
-`Gbattery`/`Gair`/`Gbaro` all sitting at exactly **255** is byte-maximum saturation, not a real
-correction — a symptom of invalid inputs rather than genuine enrichment demand.
+**What was fixed, and the gotchas:**
+- **Battery voltage** read a flat 2.00 V. Fixed with **Tools → Calibrate Voltage Reading** ("Battery
+  Voltage reading offset", `batVoltCorrect`, signed, ±2 V range, added directly to `battery10` in
+  firmware). Note this is an *offset*, not a scale — verify it still tracks at cranking voltage
+  (~12 V), not just at rest.
+- **MAP and IAT are deliberately not used.** But *not fitting a sensor does not disable its
+  correction* — `correctionIATDensity()` / `correctionBaro()` are plain table lookups with no
+  enable flag, so they return whatever the table holds at the garbage input. Fixed by flattening
+  **Settings → IAT Density** and **Settings → Barometric Correction** to 100% across the board.
+  (Baro is derived from MAP at startup, so flattening its table also cuts the MAP dependency.)
+- **Injector voltage correction curve was corrupt** — all 6 values at 255 *and all 6 voltage bins
+  at 25.5 V*. Degenerate bins mean a 2D lookup can't interpolate, so it returned 255 regardless of
+  input; that's why fixing the battery reading alone didn't move `Gbattery`. Compounding it, mode
+  was **Whole PW**, so 255% multiplied the *entire* pulsewidth (52.4 / 2.55 ≈ 20.5 — accounts for
+  the blowup almost exactly). Fixed to **Open Time only** with bins 6.0/9.2/12.4/15.6/18.8/22.0 and
+  values 250/170/115/95/85/80 (≈110% at 13.2 V). Open Time only is both physically correct and a
+  safer failure mode — a bad value scales ~1 ms of dead time, not the whole pulse.
+
+**Still outstanding — the only two left:**
+
+| Channel | Reads | Note |
+|---|---|---|
+| TPS | **~42%** floating | **The real blocker.** Control Algorithm is **Alpha-N (TPS)**, so TPS feeds the fuel table directly. Not yet wired. Calibrate via **Tools → Calibrate TPS** once connected. |
+| CLT | **1 °C** floating | No thermistor fitted. Cranking enrichment is temperature-driven, so this maxes out cold enrichment — likely why PW sits at 22.3 ms against a base of ~8.7 ms (10.8 reqFuel x 80% VE x 101%) + ~1.1 ms dead time. |
+
+So **22.3 ms is not yet a "correct" number — it is merely no longer corrupted.** Both remaining
+inputs now have visible, quantifiable effects rather than being buried under saturated corrections.
 
 ## Speeduino serial monitoring tools (`tools/`)
 
