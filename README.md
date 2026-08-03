@@ -31,13 +31,19 @@ This means:
 
 ### Pulser coil identification and positions (measured 2026-08-03)
 
-**Crank rotation: counter-clockwise.** Positions read off a degree wheel on the PTO, 0° = 12 o'clock:
+**Crank rotation: counter-clockwise, viewed from the flywheel side.** Positions read off a degree
+wheel used as a fixed protractor, 0° = 12 o'clock, numbers increasing clockwise. **Physically
+confirmed 2026-08-03** by removing a sensor and tracing, not inferred:
 
 | Cylinder | Pulser wire | Position |
 |---|---|---|
 | 1 | **W/R** (white/red) | 180° |
-| 2 | **B/W** (black/white) | 300° |
+| 2 | **W/B** (white/black) | 300° |
 | 3 | **W/G** (white/green) | 60° |
+
+> **Watch the wire naming.** The pulser coils are **W/B, W/R, W/G**. The service manual also has a
+> **B/W** (black/white), but that is a CDI *output* to ignition coil 2 — a different wire entirely.
+> W/B vs B/W is an easy transposition and briefly sent us chasing a phantom mismatch.
 
 **Spacing measures exactly 120° / 120° / 120°** (60→180, 180→300, 300→60, summing to 360). This
 **verifies** the assumption the whole architecture rests on — previously listed in the Roadmap as
