@@ -29,34 +29,48 @@ This means:
 - A pre-flashed spare Mega can be swapped into any of the three positions.
 - The 120° cylinder phasing lives entirely in the wiring harness, not in the code. **Do not cross the harness connectors between cylinders.**
 
-### Pulser coil identification and positions (measured 2026-08-03)
+### Pulser coil identification and positions — STROBE-MEASURED 2026-08-03
 
-**Crank rotation: counter-clockwise, viewed from the flywheel side.** Positions read off a degree
-wheel used as a fixed protractor, 0° = 12 o'clock, numbers increasing clockwise. **Physically
-confirmed 2026-08-03** by removing a sensor and tracing, not inferred:
+**This mapping was measured directly, not inferred.** Method: connect one pulser wire to a board,
+crank, strobe the flywheel, and see which cylinder's TDC mark the spark lands on. Repeated for all
+three wires. It exercises the whole chain (magnet, sensor, conditioner, firmware, timing) and
+answers the only question that matters: *which cylinder does this wire time correctly for.*
 
-| Cylinder | Pulser wire | Position |
+| Cylinder | Pulser wire | Sensor position |
 |---|---|---|
-| 1 | **W/R** (white/red) | 180° |
-| 2 | **W/B** (white/black) | 300° |
-| 3 | **W/G** (white/green) | 60° |
+| 1 | **W/G** (white/green) | 60° |
+| 2 | **W/R** (white/red) | 180° |
+| 3 | **W/B** (white/black) | 300° |
 
-> **Watch the wire naming.** The pulser coils are **W/B, W/R, W/G**. The service manual also has a
-> **B/W** (black/white), but that is a CDI *output* to ignition coil 2 — a different wire entirely.
-> W/B vs B/W is an easy transposition and briefly sent us chasing a phantom mismatch.
+**Wire each board to its cylinder's pulser AND that cylinder's coil.** Crossing them puts a cylinder
+120° or 240° out.
 
-**Spacing measures exactly 120° / 120° / 120°** (60→180, 180→300, 300→60, summing to 360). This
-**verifies** the assumption the whole architecture rests on — previously listed in the Roadmap as
-*"assumed, should be checked."* Since the TDCs are 120° apart by crank geometry and the pulsers are
-too, the sensor-to-TDC offset is genuinely identical for every cylinder, so **one
-`TRIGGER_ANGLE_BTDC` is correct for all three boards** and the byte-identical firmware property
-holds. The strobe result on cylinder 1 (`TRIGGER_ANGLE_BTDC=330`) therefore transfers directly to
-cylinders 2 and 3.
+**Reference frame:** degree wheel used as a fixed protractor, 0° = 12 o'clock, numbers increasing
+clockwise, crank turning counter-clockwise, viewed from the flywheel side. Cylinder 1 is nearest
+the flywheel. **TDC order is 1 → 2 → 3** (pencil-verified). The magnet's protractor reading
+**increases** as the engine turns.
 
-Use the wire colours to confirm harness routing before a start attempt: with even 120° spacing, a
-crossed connector puts that cylinder exactly 120° or 240° out.
+**The one relationship the design depends on:**
 
-This holds for fixed timing (start/idle, all cylinders at the same advance). It stops holding once per-cylinder advance curves are added (see Roadmap).
+| Cyl | sensor | TDC | sensor − TDC |
+|---|---|---|---|
+| 1 | 60° | 0° | 60 |
+| 2 | 180° | 120° | 60 |
+| 3 | 300° | 240° | 60 |
+
+Each cylinder's sensor sits **60° ahead of its own TDC**, identically for all three. That — sensors
+120° apart, TDCs 120° apart, constant offset between them — is the entire basis of the
+byte-identical firmware property, and it is now measured rather than assumed. All three cylinders
+strobe correctly on the same build, which re-confirms `TRIGGER_ANGLE_BTDC = 330`.
+
+> **Two traps that cost real time here, both worth avoiding on a re-check:**
+> 1. **Wire naming.** The pulsers are **W/B, W/R, W/G**. The manual also carries a **B/W**
+>    (black/white), but that is a CDI *output* to ignition coil 2 — a different wire. W/B vs B/W is
+>    an easy transposition.
+> 2. **Don't derive the mapping from magnet geometry.** An earlier attempt to predict it from
+>    eyeballed magnet-edge positions produced a confident but wrong answer, because a sign error in
+>    the rotation convention flips `sensor − TDC` into `sensor + TDC` and spreads the three offsets
+>    120° apart. Strobe it instead; it is one crank per wire and admits no ambiguity.
 
 ## Hardware per channel
 
