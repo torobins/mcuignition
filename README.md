@@ -756,8 +756,38 @@ Two independent confirmations it is mis-syncing rather than merely noisy:
   doing 492 rpm it straddles the 500 rpm `CRANK_RPM` threshold and flips between cranking and
   running advance rev to rev. That is a *downstream symptom of the wrong rpm*, not a second fault.
 
-**Both channels are built identically (470 Ω + 10 nF), so component values are ruled out** — the
-difference has to be physical: air gap, sensor condition, or a connection on COM10's channel.
+### ROOT CAUSE: untwisted sensor leads — FIXED 2026-08-03
+
+The damping resistor was **ruled out** (a later run had identical resistors on both channels and
+COM10 still failed). The actual cause was wiring dress: **one channel's pulser lead was twisted with
+the ground return, the other was not.**
+
+An untwisted pair forms a loop, and that loop is an antenna for changing magnetic fields — during
+cranking there is a starter drawing hundreds of amps, ignition coils, and charge coils swinging
+90-100 V within inches. The induced noise adds **extra edges**, and extra edges make `refBig` decay
+faster (`refBig>>6` per non-peak edge) until a ~31 ms burst interval clears the `> 0.6 x refBig`
+landmark threshold and is accepted as a whole revolution.
+
+**Fix: twist all four pulser conductors together** (3 signals + shared ground return). Result:
+
+| | before | after |
+|---|---|---|
+| COM9 rpm | 374 (366-378) | 370 (363-380) |
+| **COM10 rpm** | **629 (358-2017)** | **370 (364-381)** |
+| COM10 impossible readings (>450 rpm) | **9/56** | **0/43** |
+| COM10 residual stdev | 56.4° | 28.0° |
+| COM10 angle stdev | 22.4° | **3.2°** |
+
+Both boards now agree on engine speed, the 1900-2000 rpm cluster is gone entirely, and **COM9 was
+unaffected** (angle stdev 5.8 → 5.2) — so the theoretical crosstalk penalty of bundling three
+signals together did not materialise at these impedances.
+
+> **Diagnostic chain worth reusing:** reads *high* not low → extra edges rather than missed ones →
+> distribution is *bimodal* at a specific sub-interval rather than broadly noisy → a burst interval
+> is being latched as the landmark → something is adding edges. That narrowed a vague "one channel
+> is worse" into a single wiring defect. **Ideal would be three separate twisted pairs** (each
+> signal with its own return, grounds joined at one point); twisting all four shares one return but
+> proved sufficient here.
 
 > **Method worth reusing:** a disagreement in *reported rpm* between two boards on the same crank is
 > a far sharper fault signal than any single-board metric, because the true value is shared and one
