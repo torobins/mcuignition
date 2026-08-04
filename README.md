@@ -2,23 +2,62 @@
 
 Standalone electronic ignition for a 3-cylinder two-stroke engine, built from three identical Arduino Mega 2560 boards — one per cylinder. Each board reads its own VR (pulse coil) sensor, cleans up the trigger signal internally, and fires a smart ignition coil at a fixed advance angle. No shared "cleaner" board and no cross-wiring between cylinders — every board is a complete, self-sufficient ignition channel.
 
-## Current status & next steps (2026-08-02)
+## Current status & next steps (2026-08-03)
 
 **Where things stand — a clean pick-up point across sessions/machines.**
 
-- **Ignition:** working on the **landmark PLL decoder** (branch `experiment/longest-pulse-landmark`, sketch `one_cyl_ignition_landmark/`). It defeats the messy VR-at-cranking signal that the production decoder couldn't (full story under "Landmark decoder"). **Calibrated** (`TRIGGER_ANGLE_BTDC=330`), **cranking retard** verified (fires near TDC at cranking, 15° above 500 rpm), **safety-reviewed** (max-advance clamp added, boot delay gated off). Bench-validated on the real starter + real coil, **not yet run on fuel**. `master` still holds the older production sketch (which fails at starter) — the PLL still needs porting there once proven on fuel.
-- **EFI trigger: DONE and bench-proven (2026-08-02).** Speeduino is running fuel-only off a **3-pulse-per-rev trigger synthesised on ignition pin D9** (see "EFI trigger output" below). Reads true crank rpm (~368), zero sync losses, and **injection is confirmed commanded on all 3 channels off our trigger**. This closes the trigger-first integration gate.
-- **EFI sensors + enrichment: FULLY VALIDATED 2026-08-02.** Every analog input reads correctly, all four fuel corrections at 100%, and all six corrupt enrichment tables rebuilt (see "Sensor punch-list" and "Enrichment tables"). Final crank log: rpm 375, CLT 82 °F, TPS 0%, `Gammae` 188% (= WUE 1.24 x cranking 1.50, as designed), PW 39.3 ms, duty 24.6%, **zero sync losses**.
-- **Required Fuel corrected 10.8 → 9.0 ms** (see "Required Fuel" below). Engine confirmed as **Yamaha 65U, 1176 cc**; injectors are **Daytona 675, ~330 cc/min @ 3 bar**. The calculator's inputs were garbage (350 cc / 30 cc/min) *and* never applied — the 10.8 was hand-entered. Expect PW ~32.8 ms / ~20.5% duty on the next crank.
-- **Carbs are OUT (2026-08-02).** The throttle body mounts directly to the intake — the carb rebuild is no longer a prerequisite for anything. This removes what had been the main blocker on a start attempt.
+- **Ignition: two channels bench-proven and agreeing.** Landmark PLL decoder (branch
+  `experiment/longest-pulse-landmark`, sketch `one_cyl_ignition_landmark/`). Calibrated
+  (`TRIGGER_ANGLE_BTDC=330`), cranking retard verified, safety-reviewed. **Two boards on two
+  channels now report the same engine speed (370 rpm) to within 1 rpm with zero impossible
+  readings** — see "Simultaneous two-board capture". `master` still holds the older production
+  sketch; the PLL needs porting there once proven on fuel.
+- **Pulser mapping strobe-MEASURED (not inferred):** cyl 1 → **W/G** (60°), cyl 2 → **W/R** (180°),
+  cyl 3 → **W/B** (300°). Each sensor sits 60° ahead of its own TDC, identically for all three —
+  the byte-identical firmware property is now verified rather than assumed.
+- **Root cause of a full afternoon of trigger scatter: an untwisted sensor lead.** Fixed by twisting
+  all four pulser conductors. Not the grounding, not the air gap, not the damping resistor, not the
+  max-advance clamp — all of which were suspected and eliminated. See "ROOT CAUSE".
+- **EFI: fully validated and ready.** Trigger synthesised on ignition **D9** (3 pulses/rev), zero
+  sync losses across every log for two days, injection commanded on all 3 channels, every analog
+  input valid, six corrupt enrichment tables rebuilt, **Required Fuel corrected 10.8 → 9.0 ms** from
+  real engine/injector specs and verified (PW **33.1 ms**, duty **21.0%**).
+- **Engine: Yamaha 65U, 1176 cc.** Injectors Daytona 675, ~330 cc/min @ 3 bar, measured **10.5 Ω
+  (High-Z, drives direct)**. **Compression 110–115 psi across all three** — modest but workable, and
+  the ≤5 psi spread rules out a weak cylinder.
+- **Carbs are OUT.** Throttle body mounts directly to the intake.
+
+**Blocked on:** a **third VR conditioner channel** (in the mail — the existing board is 2-channel).
 
 **Immediate next actions:**
-1. **~~Confirm injector impedance~~ — DONE 2026-08-02: 10.5Ω, High-Z, drives direct.** Measured 11.3Ω minus 0.8Ω meter-lead resistance; all three identical (so no damaged injector). ~1.14 A each, well inside the onboard drivers, and at cranking the 39 ms pulses sit ~53 ms apart so they never overlap. (Note for future reference: an injector clicking in Hardware Test mode does **not** prove impedance is safe — low-Z injectors click fine and then cook the driver thermally under sustained operation. Always measure.)
-2. **Put injector +12V on a relay** (ignition-switched, fused) before introducing fuel. Currently fed direct from the battery, which leaves the injectors permanently live — a driver that fails shorted would dump fuel with the key off.
-3. **Plumb the fuel system**, then **attempt a start.** Flood clear is configured at 75% TPS if it floods.
-4. **~~Re-crank and confirm PW~~ — DONE 2026-08-03.** Required Fuel 9.0 ms burned and verified: PW **33.1 ms**, duty **21.0%**, zero sync losses. This is the baseline configuration for a start attempt.
+1. **Do not attempt a start on two cylinders.** Speeduino injects on all three regardless of spark,
+   so cylinder 3 would take full fuelling with no ignition — raw fuel into the crankcase and exhaust.
+   Either wait for the third channel or disable injector 3 first.
+2. **Twist channel 3's pulser leads before wiring it in.** Known failure mode on this engine now;
+   thirty seconds to prevent, an afternoon to diagnose.
+3. **Plumb the fuel system** — pump at/below tank outlet level (inline pumps push well, pull badly),
+   filter, rail, regulator **3 bar** with its **vacuum port open to atmosphere** (no MAP compensation
+   on Alpha-N), and a **return line**.
+4. **Wire the fuel pump relay** off Speeduino **pin 45** for prime-and-cut-out behaviour.
+5. **Spark test with plugs in and grounded**, under cranking compression — still not done, and a
+   spark that jumps in open air can fail under cylinder pressure.
+6. **Then attempt a start.** Flood clear armed at 75% TPS.
 
-**Key pointers:** ignition sketch `one_cyl_ignition_landmark/one_cyl_ignition_landmark.ino`; ignition board = CH340 clone Mega on `/dev/ttyUSB0` (Linux); Speeduino = genuine Mega on `/dev/ttyACM0`; flash cmd `arduino-cli upload -p <port> --fqbn arduino:avr:mega:cpu=atmega2560 one_cyl_ignition_landmark`.
+**Useful to acquire:** an **optical/laser tachometer**. Every rpm figure in this project is
+decoder-derived; an independent reference that shares nothing with the ignition system would have
+saved hours today.
+
+**Expected first-start outcome:** fires, runs a few seconds, dies or runs rough — then two or three
+rounds of VE trim. That is the normal path and a *good* result: it means spark, fuel and timing are
+fundamentally right. Tune in the **VE table**, not Required Fuel, which is now a known-good physical
+anchor.
+
+**Key pointers:** ignition sketch `one_cyl_ignition_landmark/one_cyl_ignition_landmark.ino`; ignition
+boards are CH340 clone Megas (COM9/COM10 on Windows, `/dev/ttyUSB*` on Linux); Speeduino is a genuine
+Mega (COM4 / `/dev/ttyACM0`); flash cmd
+`arduino-cli upload -p <port> --fqbn arduino:avr:mega:cpu=atmega2560 one_cyl_ignition_landmark`.
+**Diagnostic of choice: the simultaneous two-board capture** (`tools/` pattern in bench_logs) — two
+boards on the same crank share a true rpm, so a disagreement is proof rather than inference.
 
 ## Why the boards are identical
 
@@ -828,10 +867,10 @@ check from "Immediate next actions" above.
 
 - **Finish the landmark-decoder path** (see "Landmark decoder" above, on branch `experiment/longest-pulse-landmark`): get the calibration strobe bright enough, set `AFTER_EDGE_DEG` from a timing-light/strobe reading, characterize at higher rpm, then port the v5 PLL into production `one_cyl_ignition.ino`. This is the current front-runner for making the existing VR hardware work at cranking, ahead of the Hall swap.
 - **~~Add Speeduino fuel-only EFI to get it started~~ — DONE 2026-08-02.** Trigger proven (D9 3-pulse/rev, zero sync losses), injection commanded on all 3 channels, all sensors + enrichment tables validated. See "EFI trigger output", "Sensor punch-list" and "Enrichment tables" above. Remaining: injector impedance check, relay for injector +12V, plumb fuel, attempt start.
-- **Verify the ground-loop fix** (single-point ground at the flywheel-casing bolt, see "Starter-cranking noise investigation" above) actually cleans up the VR signal under real starter cranking. If it doesn't, fall back to the 1-magnet/3-Hall-sensor swap discussed there before reviving the full 12-1 wheel.
+- ~~Verify the ground-loop fix~~ — superseded. The remaining cranking noise turned out to be an **untwisted sensor lead**, not a ground loop; see "ROOT CAUSE". Two channels now agree on rpm with zero impossible readings, so the Hall-swap fallback is no longer indicated.
 - **Confirm actual starter cranking rpm is reliably above ~50 rpm** (see "Known hardware limitation" above) — the single most important pre-fuel check given the current trigger angle, though this should be a very comfortable margin for any real starter.
-- Verify `TRIGGER_ANGLE_BTDC` and `ADVANCE_BTDC` per cylinder with a timing light before running on fuel.
-- Confirm all three flywheel magnets sit at the same angle relative to their own cylinder's TDC (assumed, should be checked).
+- Verify `ADVANCE_BTDC` per cylinder with a timing light **once running** — precise advance is not readable at cranking, where the max-advance clamp and normal PLL jitter spread the mark. `TRIGGER_ANGLE_BTDC=330` is already confirmed three ways (strobe on all three wires, magnet geometry, and two channels agreeing on rpm).
+- ~~Confirm all three flywheel magnets sit at the same angle relative to their own cylinder's TDC~~ — **DONE 2026-08-03, strobe-measured.** Each sensor sits 60° ahead of its own TDC, identically for all three. See "Pulser coil identification and positions".
 - Build/verify the VR conditioner circuit against a real sensor — `pulse_simulator` only validates the ignition board's digital capture/blanking/timing logic, not the analog front end (waveform clamping, threshold, twin-pulse gap width). Use `vr_logger/vr_logger.ino` (drill-cranked, no scope required) to measure the real twin-pulse gap and pulse width, then tune `FIXED_BLANK_TICKS`/`TWIN_GAP_DEG` to match.
 - Install the pin-5 pulldown resistor on the actual deployed boards (skipped during bench debug sessions where it doesn't matter, but matters for a running engine where brownouts can occur).
 - **Set the BOD fuse to 4.3V before deployment.** Stock Arduino Mega fuses ship with `BODLEVEL` at 2.7V, but an ATmega2560 at 16MHz is only in spec down to 4.5V. That leaves a 2.7–4.5V window where the MCU keeps executing instead of resetting, and it can execute anything. The pin-5 pulldown's whole safety argument assumes a supply sag produces a clean reset, and at the stock fuse setting it doesn't — which matters in a marine cranking environment. Set `BODLEVEL` to 4.3V via ISP, in the same session as removing the bootloader (next item) since both need the same hardware.
