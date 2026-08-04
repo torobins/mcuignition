@@ -732,6 +732,38 @@ The underlying tracking on 08-03 charged (residual 43.1°) is the best of any se
 advance, and kickback is precisely the cranking-speed hazard it guards. Expect clamping to fall away
 once running above 500 rpm, where the engine turns far more steadily than on a starter.
 
+## Simultaneous two-board capture — the best channel diagnostic (2026-08-03)
+
+Logging two boards **during the same crank** removes every confounder at once: identical rpm,
+battery, oil and engine state, so any difference is necessarily the channel. `bench_logs/
+ign_dual_2026-08-03.txt`, tagged per port. This found a fault that sequential captures could not.
+
+| | COM9 | COM10 |
+|---|---|---|
+| **reported rpm** | **375** (370-377) | **492** (482-504) |
+| residual stdev | 24.9° | **108.5°** |
+| spark angle stdev | 8.7° | **37.0°** |
+| angle range | 325-371 | **315-447** |
+| clamped | 4% | **39%** |
+
+**They disagree about engine speed in the same crank, so one is wrong.** COM9's 375 matches every
+other capture; **COM10 over-reads by ~31%**, meaning it is locking onto an interval shorter than a
+full revolution — a burst edge mistaken for the landmark.
+
+Two independent confirmations it is mis-syncing rather than merely noisy:
+- **Residual stdev 108.5°**, worse than the flat-battery run.
+- **Its angle range starts at 315, not 325.** 315 is `AFTER_EDGE_RUN`; because COM10 believes it is
+  doing 492 rpm it straddles the 500 rpm `CRANK_RPM` threshold and flips between cranking and
+  running advance rev to rev. That is a *downstream symptom of the wrong rpm*, not a second fault.
+
+**Both channels are built identically (470 Ω + 10 nF), so component values are ruled out** — the
+difference has to be physical: air gap, sensor condition, or a connection on COM10's channel.
+
+> **Method worth reusing:** a disagreement in *reported rpm* between two boards on the same crank is
+> a far sharper fault signal than any single-board metric, because the true value is shared and one
+> reading must be wrong. Sequential captures cannot do this — rpm, battery and engine state drift
+> between runs and every difference becomes arguable.
+
 ## Speeduino serial monitoring tools (`tools/`)
 
 Two Python scripts (pyserial) for watching Speeduino telemetry during bench tests, added
