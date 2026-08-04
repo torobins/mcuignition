@@ -1,0 +1,8 @@
+=== CAPTURE OPEN - crank now ===
+WATCHDOG: STALL gap_us=3000012
+seq=1 ev=SKIP      val_us=31279040 refBig_us=0
+seq=2 ev=SKIP      val_us=1486032 refBig_us=0
+seq=3 ev=SKIP      val_us=2730592 refBig_us=0
+seq=4 ev=SKIP      val_us=1265216 refBig_us=0
+WATCHDOG: STALL gap_us=3000016
+=== CLOSED ===

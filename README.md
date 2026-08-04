@@ -80,6 +80,35 @@ strobe correctly on the same build, which re-confirms `TRIGGER_ANGLE_BTDC = 330`
 | Ignition coil (Dyna D514A smart coil) | Pin 5 / PE3 — HIGH = charging, LOW = fire |
 | Pulldown | 10 kΩ, pin 5 to GND, at the pin (holds coil OFF through reset/brownout) |
 
+### VR conditioner input network (recorded 2026-08-03)
+
+Across the VR **+ and −** at the conditioner input, per channel:
+
+| Component | Value | Purpose |
+|---|---|---|
+| Damping resistor | **470 Ω** | loads the coil to kill ringing / noise pickup |
+| Filter cap | **10 nF** | shunts RF and high-frequency noise |
+
+**What these do to the signal**, given the factory pulser specs (248-372 Ω coil resistance,
+see `bench_logs/yamaha_stator_specs.md`):
+
+- **The 470 Ω forms a divider against the coil's own ~310 Ω source impedance**, so only
+  **~60%** of the open-circuit signal reaches the conditioner (56-65% across the coil
+  tolerance range). At the manual's 3.2 V open-cranking figure that's roughly **1.9 V** at the
+  input — and notably **heavier loading than the factory CDI**, which the manual shows leaving
+  2.4 V at cranking.
+- **The 10 nF against the ~187 Ω effective source** (coil ∥ damping) gives a corner around
+  **85 kHz**. That's far above anything in the pulse waveform, so it filters RF without touching
+  the edges. This part is doing its job cleanly.
+
+**The trade-off lives entirely at cranking.** Pulser output swings ~9x across the rev range
+(3.2 V open cranking → 21.1 V at 3500 rpm), so at 3500 rpm the 40% loss is irrelevant, but at
+cranking it comes straight off an already-marginal 2-3 V. Since every trigger problem in this
+project has appeared at cranking and none at speed, **the damping resistor is a prime suspect if a
+channel proves marginal** — raising it (10 kΩ retains ~97%) would recover amplitude at the cost of
+less damping. Do not change it without a before/after telemetry capture; the noise it suppresses is
+what it was fitted for.
+
 Each cylinder is a fully independent chain: **pulse coil → conditioner → Mega → smart coil**. The three chains share only power and ground. This gives fault isolation — one cylinder's sensor or board failing takes out only that cylinder, not the engine.
 
 **Before deployment, set the BOD fuse to 4.3V via ISP** (see Roadmap) — stock Mega fuses ship with `BODLEVEL` at 2.7V, but an ATmega2560 at 16MHz is only in spec down to 4.5V, leaving a window where the MCU keeps executing instead of resetting cleanly. The pin-5 pulldown's entire safety argument assumes a supply sag produces a clean reset; at the stock fuse setting it doesn't.
