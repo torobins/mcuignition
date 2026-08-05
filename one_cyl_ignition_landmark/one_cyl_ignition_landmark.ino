@@ -187,6 +187,38 @@ void wdt_early_disable(void){
                                      // be comfortably detectable. 500us stays <25% duty
                                      // even at the PERIOD_MIN_TICKS rpm ceiling.
 
+/* ---- cylinder ID jumpers (D10 = PB4, D11 = PB5) ----
+ * Identifies which cylinder this board serves, WITHOUT breaking the byte-identical
+ * firmware property: all three boards run the same image and read their identity from
+ * the harness, which is exactly where the 120 deg cylinder phasing already lives. A
+ * compile-time #define would give three different binaries and lose the "pre-flashed
+ * spare drops into any position" guarantee.
+ *
+ * Jumper the pin to GND to assert it; internal pull-ups mean open = not asserted.
+ *   cyl 1 : both open
+ *   cyl 2 : D10 -> GND
+ *   cyl 3 : D11 -> GND
+ *   both grounded = 0 (unlabelled) -- reported as CYL=? rather than guessing.
+ *
+ * Read ONCE at boot into cylId; nothing in the ignition path consults it. It exists so
+ * telemetry logs are self-identifying, since COM port numbers renumber between sessions
+ * and are useless for identity when logging several boards at once. */
+#define CYLID_A_PIN   10      // PB4
+#define CYLID_B_PIN   11      // PB5
+uint8_t cylId = 0;            // 1/2/3, or 0 if unlabelled
+
+static uint8_t readCylId(void){
+  pinMode(CYLID_A_PIN, INPUT_PULLUP);
+  pinMode(CYLID_B_PIN, INPUT_PULLUP);
+  delayMicroseconds(50);                       // let the pull-ups settle
+  bool a = (digitalRead(CYLID_A_PIN) == LOW);  // asserted = jumpered to GND
+  bool b = (digitalRead(CYLID_B_PIN) == LOW);
+  if (!a && !b) return 1;
+  if ( a && !b) return 2;
+  if (!a &&  b) return 3;
+  return 0;                                    // both grounded: not a valid label
+}
+
 /* ---- shared state ---- */
 volatile uint32_t timerHigh      = 0;
 volatile uint32_t lastCaptureExt = 0;   // 32-bit extended tick of the previous edge (any)
@@ -370,7 +402,9 @@ ISR(TIMER5_COMPA_vect){
 
 void setup(){
   Serial.begin(115200);
-  Serial.println(F("one_cyl_ignition LANDMARK-PLL experiment build"));
+  cylId = readCylId();
+  Serial.print(F("one_cyl_ignition LANDMARK-PLL experiment build  CYL="));
+  if (cylId) Serial.println(cylId); else Serial.println('?');
   Serial.print(F("timing: TRIGGER_ANGLE_BTDC=")); Serial.print(TRIGGER_ANGLE_BTDC);
   Serial.print(F(" run_adv=")); Serial.print(ADVANCE_BTDC);
   Serial.print(F(" crank_adv=")); Serial.print(CRANK_ADVANCE_BTDC);
@@ -421,7 +455,9 @@ void printDebug(){
   uint8_t missed = seq - lastPrintedSeq - 1;
   lastPrintedSeq = seq;
 
-  Serial.print(F("seq=")); Serial.print(seq);
+  Serial.print(F("cyl="));
+  if (cylId) Serial.print(cylId); else Serial.print('?');
+  Serial.print(F(" seq=")); Serial.print(seq);
   if (missed) { Serial.print(F(" missed=")); Serial.print(missed); }
   Serial.print(F(" ev="));
   switch (ev){

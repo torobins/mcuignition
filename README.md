@@ -833,6 +833,33 @@ signals together did not materialise at these impedances.
 > reading must be wrong. Sequential captures cannot do this — rpm, battery and engine state drift
 > between runs and every difference becomes arguable.
 
+## Cylinder ID jumpers (D10 / D11) — added 2026-08-03
+
+Boards are byte-identical, so once they are in the harness nothing distinguishes them — and COM port
+numbers renumber constantly (COM8 → COM9 → COM9/10 → COM11/12/13 in a single day), so they are
+useless as identity when logging several boards at once.
+
+**Identity comes from a jumper, not a `#define`.** A compile-time constant would produce three
+different binaries and lose the "pre-flashed spare drops into any position" guarantee. Reading a
+jumper keeps one image and puts cylinder identity in the harness — exactly where the 120° phasing
+already lives.
+
+| Cylinder | Jumper |
+|---|---|
+| 1 | nothing (both pins open) |
+| 2 | **D10 → GND** |
+| 3 | **D11 → GND** |
+
+Internal pull-ups, so open = not asserted. **Read once at boot — power-cycle after changing a
+jumper.** Both pins grounded reports `CYL=?` rather than guessing, so a wiring error is visible
+instead of silently mislabelling.
+
+Result: the banner reads `... CYL=2`, and every telemetry line is prefixed `cyl=2 seq=...`, making
+logs self-identifying regardless of port assignment.
+
+**The ignition path is untouched** — `cylId` is read once at boot and nothing in the decoder,
+scheduling, or safety logic consults it.
+
 ## Speeduino serial monitoring tools (`tools/`)
 
 Two Python scripts (pyserial) for watching Speeduino telemetry during bench tests, added
