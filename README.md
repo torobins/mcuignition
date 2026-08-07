@@ -1163,6 +1163,45 @@ stayed at zero, meaning no bad lock ever reached the state the detector exists t
 safety net, deliberately bias toward it. A silent failure mode is worse than a loud one even if it
 is less frequent.
 
+## Known risks for running / higher rpm (code review 2026-08-03, NOT yet acted on)
+
+Everything in this project is characterised at **370-440 rpm**. These are predicted issues at speed
+and under boat-style throttle use. **Deliberately left unfixed** until there is running data —
+tuning them now would be guessing.
+
+**1. Burst-to-revolution ratio at high rpm is UNMEASURED — the biggest unknown.** The whole decoder
+depends on the landmark being distinguishable from the burst. This README states elsewhere that the
+burst's *absolute duration doesn't shrink with rpm*; if that were literally true the burst would span
+300% of a revolution at 2000 rpm and 900% at 6000, which is impossible — so it must shrink, and that
+claim is probably specific to the cranking range. **Nobody has measured it.** *Action: capture
+`vr_logger` at 1500-3000 rpm on the first run.* If the burst shrinks less than proportionally,
+`refBig` and the 0.7 threshold behave differently up there than anything tested.
+
+**2. PLL tracking lag under hard acceleration — the boat-specific risk.** `PLL_KF_SHIFT = 5` gives a
+~32-revolution time constant. A 2000→6000 rpm pull in ~2 s means ~0.48 s to converge at 4000 rpm
+average, during which rpm climbs ~960. The lag direction is *retard*: a model 20% slow gives
+`fracTicks = 1.05 x P_actual`, i.e. **more than a full revolution** — spark lands ~48° ATDC instead
+of 15° BTDC. Safe, but it would feel like a **flat spot on throttle**, and the lost power extends the
+transient. *Possible fix: rpm-dependent gain — keep ÷32 at cranking where it rejects jitter, use ÷8
+above ~2000 rpm where the signal is 11-21 V and clean.*
+
+**3. Half-lock detector can false-trigger.** Four *legitimate* consecutive `n==2` (every other
+landmark dropped, plausible if signal degrades at speed) would double the period **wrongly** — half
+true rpm, firing every other revolution at nonsense angles. A failure mode the detector itself
+introduces. *Fix: only double if the result is plausible AND arriving landmarks are consistently
+spaced rather than erratic.*
+
+**4. No hysteresis on the cranking-retard switchover.** `phasePeriod > CRANK_PERIOD_TICKS` chatters
+revolution-to-revolution at exactly `CRANK_RPM`, flipping advance 5° ↔ 15°. If idle lands near
+500 rpm that is a rough idle. *Fix: a few hundred rpm of hysteresis.*
+
+**5. Dwell duty at high rpm.** `DWELL_US = 3000` in a 10 ms revolution at 6000 rpm = **30% duty,
+continuously**, which is how a boat runs unlike a car. Check the D514A thermal rating at that duty.
+
+**6. Run the production build, not this one.** At 6000 rpm the telemetry generates ~100 rev/s of
+events. The non-blocking guard makes it safe (it skips rather than blocks), but the ported
+`one_cyl_ignition.ino` with no `Serial` is what should actually run the boat.
+
 ## Speeduino serial monitoring tools (`tools/`)
 
 Two Python scripts (pyserial) for watching Speeduino telemetry during bench tests, added
