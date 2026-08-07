@@ -2,62 +2,80 @@
 
 Standalone electronic ignition for a 3-cylinder two-stroke engine, built from three identical Arduino Mega 2560 boards — one per cylinder. Each board reads its own VR (pulse coil) sensor, cleans up the trigger signal internally, and fires a smart ignition coil at a fixed advance angle. No shared "cleaner" board and no cross-wiring between cylinders — every board is a complete, self-sufficient ignition channel.
 
-## Current status & next steps (2026-08-03)
+## Current status & next steps (2026-08-03, end of session)
 
-**Where things stand — a clean pick-up point across sessions/machines.**
+**IGNITION IS DONE. EFI IS DONE. Next step is plumbing fuel and attempting a start.**
 
-- **Ignition: two channels bench-proven and agreeing.** Landmark PLL decoder (branch
-  `experiment/longest-pulse-landmark`, sketch `one_cyl_ignition_landmark/`). Calibrated
-  (`TRIGGER_ANGLE_BTDC=330`), cranking retard verified, safety-reviewed. **Two boards on two
-  channels now report the same engine speed (370 rpm) to within 1 rpm with zero impossible
-  readings** — see "Simultaneous two-board capture". `master` still holds the older production
-  sketch; the PLL needs porting there once proven on fuel.
-- **Pulser mapping strobe-MEASURED (not inferred):** cyl 1 → **W/G** (60°), cyl 2 → **W/R** (180°),
-  cyl 3 → **W/B** (300°). Each sensor sits 60° ahead of its own TDC, identically for all three —
-  the byte-identical firmware property is now verified rather than assumed.
-- **Root cause of a full afternoon of trigger scatter: an untwisted sensor lead.** Fixed by twisting
-  all four pulser conductors. Not the grounding, not the air gap, not the damping resistor, not the
-  max-advance clamp — all of which were suspected and eliminated. See "ROOT CAUSE".
-- **EFI: fully validated and ready.** Trigger synthesised on ignition **D9** (3 pulses/rev), zero
-  sync losses across every log for two days, injection commanded on all 3 channels, every analog
-  input valid, six corrupt enrichment tables rebuilt, **Required Fuel corrected 10.8 → 9.0 ms** from
-  real engine/injector specs and verified (PW **33.1 ms**, duty **21.0%**).
-- **Engine: Yamaha 65U, 1176 cc.** Injectors Daytona 675, ~330 cc/min @ 3 bar, measured **10.5 Ω
-  (High-Z, drives direct)**. **Compression 110–115 psi across all three** — modest but workable, and
-  the ≤5 psi spread rules out a weak cylinder.
-- **Carbs are OUT.** Throttle body mounts directly to the intake.
+### Ignition — all three channels verified, zero bad readings
 
-**Blocked on:** a **third VR conditioner channel** (in the mail — the existing board is 2-channel).
+| Cylinder | Pulser | Sensor | rpm | angle stdev | bad |
+|---|---|---|---|---|---|
+| 1 | **W/G** | 60° | 371 | 13.1° | **0/74** |
+| 2 | **W/R** | 180° | 370 | 13.9° | **0/73** |
+| 3 | **W/B** | 300° | 370 | 12.2° | **0/75** |
 
-**Immediate next actions:**
-1. **Do not attempt a start on two cylinders.** Speeduino injects on all three regardless of spark,
-   so cylinder 3 would take full fuelling with no ignition — raw fuel into the crankcase and exhaust.
-   Either wait for the third channel or disable injector 3 first.
-2. **Twist channel 3's pulser leads before wiring it in.** Known failure mode on this engine now;
-   thirty seconds to prevent, an afternoon to diagnose.
-3. **Plumb the fuel system** — pump at/below tank outlet level (inline pumps push well, pull badly),
-   filter, rail, regulator **3 bar** with its **vacuum port open to atmosphere** (no MAP compensation
-   on Alpha-N), and a **return line**.
-4. **Wire the fuel pump relay** off Speeduino **pin 45** for prime-and-cut-out behaviour.
-5. **Spark test with plugs in and grounded**, under cranking compression — still not done, and a
-   spark that jumps in open air can fail under cylinder pressure.
-6. **Then attempt a start.** Flood clear armed at 75% TPS.
+Three independent channels, **one firmware image**, agreeing within 1 rpm. Firing counts within 2 of
+each other, so every channel is catching every revolution.
 
-**Useful to acquire:** an **optical/laser tachometer**. Every rpm figure in this project is
-decoder-derived; an independent reference that shares nothing with the ignition system would have
-saved hours today.
+**Final decoder config** (`one_cyl_ignition_landmark/`):
 
-**Expected first-start outcome:** fires, runs a few seconds, dies or runs rough — then two or three
-rounds of VE trim. That is the normal path and a *good* result: it means spark, fuel and timing are
-fundamentally right. Tune in the **VE table**, not Required Fuel, which is now a known-good physical
-anchor.
+| Parameter | Value | Nature |
+|---|---|---|
+| `TRIGGER_ANGLE_BTDC` | 330 | geometry — confirmed 3 independent ways |
+| `LM_NUM/LM_DEN` | 10/7 = **0.7** | tuned, deliberately biased low |
+| `COLD_ACQ_MAX_RPM` | **600** | physical constraint |
+| `HALFLOCK_STREAK` | 4 | structural |
+| `MAX_ADVANCE_BTDC` | 25° | safety clamp |
 
-**Key pointers:** ignition sketch `one_cyl_ignition_landmark/one_cyl_ignition_landmark.ino`; ignition
-boards are CH340 clone Megas (COM9/COM10 on Windows, `/dev/ttyUSB*` on Linux); Speeduino is a genuine
-Mega (COM4 / `/dev/ttyACM0`); flash cmd
-`arduino-cli upload -p <port> --fqbn arduino:avr:mega:cpu=atmega2560 one_cyl_ignition_landmark`.
-**Diagnostic of choice: the simultaneous two-board capture** (`tools/` pattern in bench_logs) — two
-boards on the same crank share a true rpm, so a disagreement is proof rather than inference.
+**Three protection layers:** the guard rejects implausible acquisitions outright, the half-lock
+detector catches anything that slips past, and the max-advance clamp bounds the consequence of any
+mis-sync to a wasted spark rather than a kickback.
+
+**Why it is safe at speed.** The clamp is computed from **measured** revolution time, not the model,
+so it holds even when the model is wrong. Hard decel makes the model lag *short* → over-advance →
+floored at 25° BTDC, and decel is low-load where advance matters least. Hard accel lags the other
+way → **retard**, which costs power but damages nothing. So the dangerous combination (high advance
++ high load) cannot arise from model lag. A sync loss simply stops firing until re-acquisition — a
+misfire, not a wrong-angle spark.
+
+### EFI — validated, waiting on fuel
+
+Trigger synthesised on ignition **D9** (3 pulses/rev), zero sync losses across every log. Required
+Fuel **9.0 ms** (from real specs, burn-verified), PW **33.1 ms**, duty **21%**, all four corrections
+at 100%, six corrupt enrichment tables rebuilt. Injectors **10.5 Ω High-Z**, drive direct.
+
+### Engine
+
+Yamaha 65U, **1176 cc**, 3-cyl 2-stroke, 135 hp. **Compression 110-115 psi across all three** —
+modest but workable, ≤5 psi spread rules out a weak cylinder. Cranks 370-437 rpm.
+
+### Remaining before a start attempt
+
+1. **Plumb fuel** — pump at/below tank outlet (inline pumps push well, pull badly), filter, rail,
+   regulator **3 bar** with **vacuum port open to atmosphere** (no MAP compensation on Alpha-N),
+   **return line** to tank.
+2. **Fuel pump relay** off Speeduino **pin 45** for prime-and-cut-out behaviour.
+3. **Fresh plugs, gapped to spec** — cheapest insurance against the skipped spark-under-compression
+   test. Gap is the biggest lever on required voltage.
+4. **Cooling** — hose feed for anything past a 20-30 s first fire. *Engine running before water on,
+   water off before engine stops*, or water backs up the exhaust and hydrolocks a cylinder.
+5. **Never run on fewer than 3 cylinders** — Speeduino injects on all three regardless of spark, so
+   a non-firing cylinder takes full fuelling into the crankcase and exhaust.
+
+**Expected outcome:** fires, runs a few seconds, dies or runs rough → then 2-3 rounds of VE trim.
+That is the normal path and a *good* result. **Tune in the VE table**, not Required Fuel, which is
+now a known-good physical anchor. Log all three boards through the attempt; spare plugs on hand.
+
+**Diagnostic of choice: the simultaneous multi-board capture.** All boards on the same crank share a
+true rpm, so a disagreement is proof rather than inference. Sequential captures are always arguable
+because rpm/battery/engine state drift between runs.
+
+**Worth acquiring:** an optical/laser tachometer. Every rpm figure here is decoder-derived.
+
+**Key pointers:** ignition sketch `one_cyl_ignition_landmark/one_cyl_ignition_landmark.ino`; boards
+are CH340 Megas, ports renumber constantly so re-enumerate before every capture and rely on the
+`cyl=` tag; Speeduino is a genuine Mega. Flash:
+`arduino-cli upload -p <port> --fqbn arduino:avr:mega:cpu=atmega2560 one_cyl_ignition_landmark`
 
 ## Why the boards are identical
 
