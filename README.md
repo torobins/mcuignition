@@ -1072,6 +1072,48 @@ second at 370 rpm).
 > burst, no landmark classification at all. That would delete this entire class of problem rather
 > than manage it.
 
+## Threshold relaxed to 0.7 + guard tightened to 600 rpm — final config
+
+Once the cold-acquisition guard existed, the landmark threshold could be **deliberately biased low**,
+because the two threshold errors are **not symmetric**:
+
+| threshold error | failure | protected by |
+|---|---|---|
+| **too low** | extra landmarks → false lock at half | guard **and** HALFLOCK detector — two layers |
+| **too high** | genuine landmarks rejected → missed sparks | **nothing. Silent.** |
+
+At 0.8 the system sat closer to the *unprotected* cliff than necessary. Relaxing to **0.7** moves
+toward the protected failure mode. The guard was tightened **800 → 600 rpm** to compensate: with two
+landmarks per rev the candidates are ~90 ms and ~72 ms, and an 800 rpm floor (75 ms) rejects the 72
+but **accepts** the 90 — a 600 rpm floor (100 ms) rejects both. Still 37% above the fastest cranking
+ever recorded here (437 rpm), so it remains a physical constraint, not a tuned number.
+
+| | 0.8 + guard 800 | **0.7 + guard 600** |
+|---|---|---|
+| cyl 1 | n=37, 378 rpm | **n=74, 371 rpm** |
+| cyl 2 | n=27, 374 rpm | **n=73, 370 rpm** |
+| cyl 3 | n=35, 374 rpm | **n=75, 370 rpm** |
+| bad readings | 0 / 0 / 0 | **0 / 0 / 0** |
+| IMPLAUS | 7 / 7 / 9 | 12 / 12 / 16 |
+| HALFLOCK | 0 | **0** |
+
+> **The decisive evidence is the firing-count SPREAD, not the totals.** All three channels see the
+> same crank, so they must count the same revolutions. At 0.8: **37 / 27 / 35** — a spread of 10,
+> i.e. channels were **missing landmarks at different rates**. At 0.7: **74 / 73 / 75** — spread of 2.
+> That is the silent failure mode caught in the act: 0.8 was quietly costing sparks, and nothing in
+> the system would have reported it, because rejection produces *fewer* readings rather than *bad*
+> ones.
+
+rpm agreement also tightened to within 1 rpm (371/370/370 vs 378/374/374), and angle stdev became
+consistent across channels (13.1/13.9/12.2 vs 15.3/20.9/9.3) instead of one channel being far worse.
+
+The guard absorbed the extra false candidates exactly as intended — IMPLAUS rose while HALFLOCK
+stayed at zero, meaning no bad lock ever reached the state the detector exists to correct.
+
+**Design principle worth carrying forward:** when only one direction of a tuning error has a
+safety net, deliberately bias toward it. A silent failure mode is worse than a loud one even if it
+is less frequent.
+
 ## Speeduino serial monitoring tools (`tools/`)
 
 Two Python scripts (pyserial) for watching Speeduino telemetry during bench tests, added

@@ -95,8 +95,8 @@ void wdt_early_disable(void){
  * is any interval > LM_NUM/LM_DEN (0.6) of refBig. Rise is capped to +25%/edge so a
  * single irregular rev can't spike the threshold, and only intervals < PERIOD_MAX
  * may raise it (an idle gap or capture glitch must not poison it). */
-#define LM_NUM               5        // landmark if interval*LM_NUM > refBig*LM_DEN
-#define LM_DEN               4        //   i.e. interval > 0.8 * refBig
+#define LM_NUM              10        // landmark if interval*LM_NUM > refBig*LM_DEN
+#define LM_DEN               7        //   i.e. interval > 0.7 * refBig
 /* 2026-08-03: raised 0.6 -> 0.8 -> 0.9. At 0.6, refBig tracking the true ~90ms
  * landmark admitted anything over ~54ms — and on some channels the REMAINDER of the
  * revolution survives as one gap that long, giving TWO landmarks per rev. Acquisition
@@ -112,7 +112,17 @@ void wdt_early_disable(void){
  * period appearing on cyl 1). No single threshold suits all three channels, because
  * the margin between "reject the false landmark" and "keep the true one" depends on
  * each channel's burst structure. Settled at 0.8 — where cyls 1 and 2 are spotless —
- * and the residual half-lock is caught by HALFLOCK_STREAK below instead. */
+ * and the residual half-lock is caught by HALFLOCK_STREAK below instead.
+ *
+ * 2026-08-03 (later): RELAXED 0.8 -> 0.7 once the cold-acquisition guard existed. The
+ * two threshold errors are NOT symmetric:
+ *   too LOW  -> extra landmarks -> false lock at half  -> caught by the guard AND by
+ *               HALFLOCK_STREAK. Two layers of protection.
+ *   too HIGH -> genuine landmarks rejected -> missed sparks -> caught by NOTHING.
+ * So bias LOW deliberately: it moves toward the protected failure mode and away from
+ * the unprotected one. 0.8 sat closer to the rejection cliff than necessary (0.9 was
+ * already dropping FIRED counts 57->24), and a rewire that shifts burst structure could
+ * push it over with no mechanism to notice. */
 
 /* ---- half-lock detector ----
  * If acquisition locks on HALF the true period, every real landmark then arrives at
@@ -128,13 +138,19 @@ void wdt_early_disable(void){
 /* ---- cold-acquisition plausibility guard ----
  * After a genuine STALL (STALL_US with no edges, so the engine really stopped), the
  * next lock can only be at CRANKING speed — a starter physically cannot spin this
- * engine at 800rpm. So reject an implausibly short acquisition period outright and
+ * engine at 600rpm (fastest ever recorded here: 437 on a fresh battery, so ~37%
+ * margin). So reject an implausibly short acquisition period outright and
  * keep looking. This is a PHYSICAL constraint, not a tuned threshold, so it adds no
  * fragility: it would have caught every false half-lock seen on 2026-08-03 (81/85ms
  * models = 700-740rpm) at the moment of acquisition, instead of four revolutions
  * later via HALFLOCK.
- * Deliberately NOT applied to a RELOCK, which can legitimately happen at speed. */
-#define COLD_ACQ_MAX_RPM     800
+ * Deliberately NOT applied to a RELOCK, which can legitimately happen at speed.
+ * Tightened 800 -> 600 when the landmark threshold was relaxed to 0.7: with two
+ * landmarks per rev the candidate periods are ~90ms and ~72ms (summing to the 162ms
+ * revolution). At 800rpm the floor is 75ms, which rejects the 72 but ACCEPTS the 90.
+ * At 600rpm the floor is 100ms and both are rejected — so the guard actually catches
+ * what the relaxed threshold lets through. */
+#define COLD_ACQ_MAX_RPM     600
 #define COLD_ACQ_MIN_TICKS   US_TO_TICKS(60000000UL / COLD_ACQ_MAX_RPM)
 
 /* Acquisition: two consecutive landmark periods must agree within +/-25% to lock. */
