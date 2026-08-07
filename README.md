@@ -860,7 +860,7 @@ logs self-identifying regardless of port assignment.
 **The ignition path is untouched** — `cylId` is read once at boot and nothing in the decoder,
 scheduling, or safety logic consults it.
 
-## Third channel: new conditioner board is faulty (open, 2026-08-03)
+## Three-channel bring-up — diagnostic log (OPEN, 2026-08-03)
 
 With all three channels wired (leads twisted on all three), a three-board simultaneous capture:
 
@@ -898,6 +898,38 @@ board is suspect and wants comparing against the old one component by component.
 **Not yet ruled out:** W/B pulser coil resistance (spec 248-372 Ω, compare against W/R and W/G), and
 the damping R/C values on the new board versus the old — mismatched resistors have already been
 found once on the old board with no explanation.
+
+### Run-by-run record (each row = one crank, all boards logged simultaneously)
+
+| # | configuration | cyl 1 | cyl 2 | cyl 3 |
+|---|---|---|---|---|
+| A | all original, cyl3 on new-ch1 | **372, 0/45** | **372, 0/43** | 722, 65/65 |
+| B | W/B ↔ W/G swapped | 412, 4/49 | **374, 0/44** | 495, 49/49 |
+| C | back to original, cyl3 on new-**ch2** | 412, 1/59 | **704, 66/66** | 816, 66/74 |
+| D | new board **fully disconnected** | **371, 0/74** | **743, 106/106** | (floating) |
+
+*(format: mean rpm, impossible-readings/total. "Impossible" = >450 rpm against a true ~371.)*
+
+**What each run eliminated:**
+- **B** — cyl 3's fault followed the *channel*, not the sensor: COM13 still failed on W/G, a wire
+  that is spotless on cyl 1. Sensor exonerated.
+- **D** — disconnecting the new board did **not** fix cyl 2, so the "new board pollutes a shared
+  ground/supply" theory is **dead**. Cyl 1 simultaneously produced its best-ever result.
+- **Cyl 2 broke between B and C** — it was perfect through two prior cranks and failed immediately
+  after the wiring was "put back to original". Its own channel and board never changed. That dates
+  the fault to a **physical connection disturbed during rewiring**, not to anything about the new
+  board.
+
+**Current state:** cyl 1 verified good (371 rpm, 0/74). Cyl 2 and cyl 3 both faulty, and the
+evidence now says these are **two independent problems**, not one shared cause.
+
+**Next:** reseat/inspect cyl 2's channel — W/R lead at the conditioner input, twist integrity,
+connectors and crimps disturbed during the rewire. Cyl 1 gives a known-good reference in the same
+crank.
+
+> **A floating input produces confident-looking garbage.** With cyl 3's input disconnected, COM13
+> reported 3613 rpm with residual stdev 7.0 and angle stdev 1.6 — *tighter than any real channel*.
+> Never read a stable result as proof a channel is actually connected; check the rpm is plausible.
 
 ## Speeduino serial monitoring tools (`tools/`)
 
