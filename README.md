@@ -860,6 +860,45 @@ logs self-identifying regardless of port assignment.
 **The ignition path is untouched** — `cylId` is read once at boot and nothing in the decoder,
 scheduling, or safety logic consults it.
 
+## Third channel: new conditioner board is faulty (open, 2026-08-03)
+
+With all three channels wired (leads twisted on all three), a three-board simultaneous capture:
+
+| Port | Cyl | Sensor | rpm | residual | angle sd | impossible |
+|---|---|---|---|---|---|---|
+| COM11 | 1 | W/G | **372** | 18.4° | **1.4°** | 0/45 |
+| COM12 | 2 | W/R | **372** | 21.2° | 7.5° | 0/43 |
+| COM13 | 3 | W/B | **722** | 85.2° | 27.9° | **65/65** |
+
+Cylinders 1 and 2 agree exactly and are done. Cylinder 3 reads ~2x true speed on every single
+revolution — a *stable* fault, unlike the earlier intermittent one, so it is a structural signal
+difference rather than noise crossing a threshold.
+
+**Swap test (W/B ↔ W/G) puts it on the conditioner, not the sensor:**
+
+| Port | now fed | rpm | impossible |
+|---|---|---|---|
+| COM11 | W/B | 412 | 4/49 |
+| COM12 | W/R (unchanged) | 374 | 0/44 |
+| COM13 | **W/G** | **495** | **49/49** |
+
+**COM13 fails with either sensor** — including W/G, which is spotless on COM11. Cylinder 3 is the
+only channel on the **second (new) conditioner board**, so that board's channel is the fault.
+W/B may also be marginal (it cost COM11 its clean sheet: 372/0-impossible → 412/4-impossible), but
+that is secondary and less certain.
+
+> **Caveat on reading small differences:** COM12 was untouched between the two runs yet its residual
+> went 21 → 34 and angle stdev 7.5 → 19.2. There is real crank-to-crank variation, so trust the
+> 49/49-vs-0/44 distinction and treat small shifts as noise.
+
+**Next test:** the new conditioner board is 2-channel and only one half is in use — move cylinder 3
+to the unused channel. Works → that channel is faulty (component or solder). Also fails → the whole
+board is suspect and wants comparing against the old one component by component.
+
+**Not yet ruled out:** W/B pulser coil resistance (spec 248-372 Ω, compare against W/R and W/G), and
+the damping R/C values on the new board versus the old — mismatched resistors have already been
+found once on the old board with no explanation.
+
 ## Speeduino serial monitoring tools (`tools/`)
 
 Two Python scripts (pyserial) for watching Speeduino telemetry during bench tests, added
