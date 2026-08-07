@@ -125,6 +125,18 @@ void wdt_early_disable(void){
 #define HALFLOCK_STREAK      4        // consecutive n==2 landmarks before doubling
 #define REFBIG_DECAY_SHIFT   6        // refBig -= refBig>>6 on a non-peak edge
 
+/* ---- cold-acquisition plausibility guard ----
+ * After a genuine STALL (STALL_US with no edges, so the engine really stopped), the
+ * next lock can only be at CRANKING speed — a starter physically cannot spin this
+ * engine at 800rpm. So reject an implausibly short acquisition period outright and
+ * keep looking. This is a PHYSICAL constraint, not a tuned threshold, so it adds no
+ * fragility: it would have caught every false half-lock seen on 2026-08-03 (81/85ms
+ * models = 700-740rpm) at the moment of acquisition, instead of four revolutions
+ * later via HALFLOCK.
+ * Deliberately NOT applied to a RELOCK, which can legitimately happen at speed. */
+#define COLD_ACQ_MAX_RPM     800
+#define COLD_ACQ_MIN_TICKS   US_TO_TICKS(60000000UL / COLD_ACQ_MAX_RPM)
+
 /* Acquisition: two consecutive landmark periods must agree within +/-25% to lock. */
 #define SYNC_AGREE_NUM       4
 #define SYNC_AGREE_DEN       3
@@ -253,6 +265,7 @@ volatile uint32_t phaseExt       = 0;   // MODEL: extended tick of the last mode
 volatile uint32_t phasePeriod    = 0;   // MODEL: rev period estimate (ticks)
 volatile uint32_t prevPeriod     = 0;   // acquisition-only: previous landmark period
 volatile uint8_t  nTwoStreak     = 0;   // consecutive n==2 landmarks (half-lock detector)
+volatile bool     coldAcquire    = true;  // next lock follows a real stop -> cranking speed only
 volatile bool     synced         = false;
 volatile bool     coilCharging   = false;
 volatile uint32_t coilHighMicros = 0;
@@ -280,6 +293,7 @@ uint32_t efiPulseHighMicros = 0;            // when it went HIGH, to time its wi
 #define DBG_EARLY     7   // refractory: extra/early edge ignored
 #define DBG_SYNCCAND  8   // acquisition: landmark recorded, not yet agreeing
 #define DBG_HALFLOCK  9   // half-lock detected -> model period doubled
+#define DBG_IMPLAUS  10   // cold acquisition rejected: period implies > COLD_ACQ_MAX_RPM
 volatile uint8_t  dbgSeq      = 0;
 volatile uint8_t  dbgEvent    = DBG_NONE;
 volatile uint32_t dbgVal      = 0;   // raw interval (SKIP) or delta-since-model (locked)
@@ -328,12 +342,18 @@ ISR(TIMER5_CAPT_vect){
       dbgEvent=DBG_REJECTED; dbgVal=period; dbgRefBig=refBig; dbgSeq++;
       return;
     }
+    // Cold-acquisition guard: coming out of a real stop, only cranking speed is possible.
+    if (coldAcquire && period < COLD_ACQ_MIN_TICKS){
+      prevPeriod = 0;
+      dbgEvent=DBG_IMPLAUS; dbgVal=period; dbgRefBig=refBig; dbgSeq++;
+      return;
+    }
     bool agrees = prevPeriod &&
                   (period * SYNC_AGREE_NUM > prevPeriod * SYNC_AGREE_DEN) &&
                   (period * SYNC_AGREE_DEN < prevPeriod * SYNC_AGREE_NUM);
     prevPeriod = period;
     if (agrees){
-      phasePeriod = period; synced = true;
+      phasePeriod = period; synced = true; coldAcquire = false;
       dbgEvent=DBG_SYNCFIRST; dbgVal=period; dbgPeriod=phasePeriod; dbgRefBig=refBig; dbgSeq++;
     } else {
       dbgEvent=DBG_SYNCCAND; dbgVal=period; dbgRefBig=refBig; dbgSeq++;
@@ -518,6 +538,7 @@ void printDebug(){
     case DBG_EARLY:     Serial.print(F("EARLY    ")); break;
     case DBG_SYNCCAND:  Serial.print(F("SYNCCAND ")); break;
     case DBG_HALFLOCK:  Serial.print(F("HALFLOCK ")); break;
+    case DBG_IMPLAUS:   Serial.print(F("IMPLAUS  ")); break;
     default:            Serial.print(F("NONE     ")); break;
   }
   Serial.print(F(" val_us="));    Serial.print(val * US_PER_TICK);
@@ -588,7 +609,7 @@ void loop(){
     TIMSK5 &= ~(_BV(OCIE5A) | _BV(OCIE5B));
     // keep refBig warm across the stall; just drop the lock and acquisition state
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ coilCharging=false; synced=false; prevPeriod=0;
-                                       efiTrainRunning=false; }
+                                       efiTrainRunning=false; coldAcquire=true; }
     EFI_LOW();                       // don't strand the EFI pin HIGH mid-pulse
     efiPulseActive = false;
     if (!stallLatched && Serial.availableForWrite() >= (SERIAL_TX_BUFFER_SIZE - 1)){

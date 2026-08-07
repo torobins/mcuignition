@@ -1034,6 +1034,44 @@ burst-as-fraction-of-revolution, and rotational steadiness.
 
 **This is the ignition baseline to compare a running engine against.**
 
+## Cold-acquisition plausibility guard (2026-08-03) — hardening
+
+Added in answer to "are we over-coding for one specific config?". The honest assessment was: the
+**0.8 landmark threshold is the fragile part** — it sits in a narrow window (0.6 false-locks, 0.9
+rejects genuine landmarks) and was found empirically at one operating point, so rerouting the
+harness could shift it. Everything else (the 330° geometry, the max-advance clamp, the PLL itself)
+is structural.
+
+**The guard is a PHYSICAL constraint, not another tuned number.** After a genuine `STALL`
+(`STALL_US` with no edges, so the engine really stopped) the next lock can only be at cranking
+speed — a starter cannot spin this engine at 800 rpm. So an acquisition period implying more than
+`COLD_ACQ_MAX_RPM` (800) is rejected outright. Deliberately **not** applied to a `RELOCK`, which can
+legitimately occur at speed.
+
+**Result — best run in the project:**
+
+| | firings | bad | IMPLAUS | HALFLOCK |
+|---|---|---|---|---|
+| cyl 1 | 37 | **0** | 7 | 0 |
+| cyl 2 | 27 | **0** | 7 | 0 |
+| cyl 3 | 35 | **0** | 9 | 0 |
+
+**Zero bad readings across every firing — not just steady state.** The guard rejected 7-9 bad
+acquisitions per channel, and the half-lock detector never fired, which is the ideal outcome:
+prevention at acquisition rather than four revolutions of wrong-angle sparks then a correction.
+
+**It also eliminated the spin-up outliers.** The previous run had 18/80 and 12/82 bad readings
+clustered at burst starts — the decoder locking onto something implausible while the engine
+accelerated. It now refuses to lock until the period is physically possible, so there are no
+wrong-angle sparks during spin-up at all. Cost is a slightly later first spark (a fraction of a
+second at 370 rpm).
+
+> **Remaining fragility, stated plainly:** all of this is signal processing rescuing a marginal
+> sensor — 2-3 V at cranking through a burst-prone conditioner. The structurally robust fix is the
+> **Hall sensor swap on the Roadmap**: one clean edge per revolution, amplitude-independent, no
+> burst, no landmark classification at all. That would delete this entire class of problem rather
+> than manage it.
+
 ## Speeduino serial monitoring tools (`tools/`)
 
 Two Python scripts (pyserial) for watching Speeduino telemetry during bench tests, added
