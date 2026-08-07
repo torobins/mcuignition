@@ -920,8 +920,39 @@ found once on the old board with no explanation.
   the fault to a **physical connection disturbed during rewiring**, not to anything about the new
   board.
 
-**Current state:** cyl 1 verified good (371 rpm, 0/74). Cyl 2 and cyl 3 both faulty, and the
-evidence now says these are **two independent problems**, not one shared cause.
+| E | after full wiring retrace | **374, 0/44** | **730, 56/56** | **725, 49/49** |
+
+**Run E overturns the "two independent problems" reading.** Cyl 2 and cyl 3 now fail with
+*near-identical* statistics — rpm 730 vs 725, residual 88.0 vs 86.9, angle stdev 28.7 vs 28.8 — on
+**two different conditioner boards**. Two independent faults do not match to three significant
+figures. Something common drives both.
+
+### Leading hypothesis: CROSSTALK from bundling all three signals
+
+Twisting all four conductors together (3 signals + shared ground) was adopted earlier because it
+fixed a genuine noise problem. **It appears to have introduced a different one.**
+
+W/R sits at 180° and W/B at 300° — 120° apart. If those two couple in the bundle, each channel sees
+**its own pulse plus the other's**, one third of a revolution later: **two landmarks per rev**, which
+is exactly the clean ~2x both report. W/G at 60° is evidently coupling less — different position in
+the bundle, or more separation.
+
+The timeline fits: cyl 2 was perfect through runs A and B, then failed immediately after the rewire
+that bundled everything. This was an explicitly predicted risk at the time ("*if twisting all four
+causes crosstalk, you would see the previously good channel degrade*") and it was not watched for
+once the first fix worked.
+
+**Fix:** separate the three signals — each twisted with **its own** ground return, grounds joined at
+a single point at the source. Cheap confirmation first: physically separate the W/R and W/B runs by
+a few inches without rebuilding anything and re-crank. Both returning to ~371 confirms it.
+
+> **Lesson:** the shared-return bundle traded one failure mode for another. "Twist all four
+> together" is fine for a *single* sensor pair but not for three signals sharing one return — with
+> three sensors 120° apart, crosstalk manifests as an exact 2x or 3x rpm error, which looks like a
+> decoder fault rather than a wiring one.
+
+**Current state:** cyl 1 verified good (371-374 rpm, 0 impossible, repeatedly). Cyl 2 and cyl 3 both
+faulty with a shared signature.
 
 **Next:** reseat/inspect cyl 2's channel — W/R lead at the conditioner input, twist integrity,
 connectors and crimps disturbed during the rewire. Cyl 1 gives a known-good reference in the same
