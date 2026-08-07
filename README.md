@@ -14,8 +14,39 @@ Standalone electronic ignition for a 3-cylinder two-stroke engine, built from th
 | 2 | **W/R** | 180° | 370 | 13.9° | **0/73** |
 | 3 | **W/B** | 300° | 370 | 12.2° | **0/75** |
 
-Three independent channels, **one firmware image**, agreeing within 1 rpm. Firing counts within 2 of
-each other, so every channel is catching every revolution.
+Three independent channels, **one firmware image**, agreeing within 1 rpm.
+
+**Miss rate — measured directly, not inferred.** Each `FIRED` event carries `n`, the number of
+revolutions since the last one, so `n=2` means exactly one landmark was missed:
+
+| | n distribution | revolutions | missed |
+|---|---|---|---|
+| cyl 1 | `{1: 73, 2: 1}` | 75 | 1 (**1.3%**) |
+| cyl 2 | `{1: 72, 2: 1}` | 74 | 1 (**1.4%**) |
+| cyl 3 | `{1: 74, 2: 1}` | 76 | 1 (**1.3%**) |
+
+**A miss is a clean SKIP, not a mistimed spark.** `n=2` means the model *knows* a revolution was
+skipped and continues with correct phase — that is precisely why the n-rounding exists. Cost at
+idle (~1000 rpm) is roughly **one skipped firing per cylinder every 4-5 seconds**, which is not
+perceptible. It should improve further once running: these misses are at cranking on a 3.2 V signal,
+versus 11 V at 2000 rpm into the same threshold.
+
+**This is also the clearest evidence the 0.7 relaxation was right:**
+
+| | 0.8 | **0.7** |
+|---|---|---|
+| cyl 1 | 2.6% missed | **1.3%** |
+| cyl 2 | **10.0% missed** | **1.4%** |
+| cyl 3 | 2.8% missed | **1.3%** |
+
+Cylinder 2 was dropping one revolution in ten at 0.8 — silently, since rejection produces *fewer*
+readings rather than *bad* ones.
+
+> **Correction to an earlier reading.** The 0.8 firing counts (37/27/35) were first taken as direct
+> evidence of channels "missing landmarks at different rates". Measuring `n` properly shows
+> revolutions *covered* were 38/30/36, so part of that spread was cyl 2 spending longer in
+> **acquisition** (not firing at all until locked) rather than missing landmarks once locked. The
+> conclusion held, but raw FIRED counts are not a miss-rate measurement — **sum the `n` values.**
 
 **Final decoder config** (`one_cyl_ignition_landmark/`):
 
