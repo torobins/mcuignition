@@ -96,7 +96,33 @@ void wdt_early_disable(void){
  * single irregular rev can't spike the threshold, and only intervals < PERIOD_MAX
  * may raise it (an idle gap or capture glitch must not poison it). */
 #define LM_NUM               5        // landmark if interval*LM_NUM > refBig*LM_DEN
-#define LM_DEN               3        //   i.e. interval > 0.6 * refBig
+#define LM_DEN               4        //   i.e. interval > 0.8 * refBig
+/* 2026-08-03: raised 0.6 -> 0.8 -> 0.9. At 0.6, refBig tracking the true ~90ms
+ * landmark admitted anything over ~54ms — and on some channels the REMAINDER of the
+ * revolution survives as one gap that long, giving TWO landmarks per rev. Acquisition
+ * then locks at HALF the true period (measured: 81ms and 85ms against a true 162ms),
+ * and n-rounding sustains the false lock indefinitely — a real landmark 161ms later is
+ * counted as n=2, confirming the wrong period instead of correcting it. The 0.6*P
+ * refractory cannot help because the false lock happens during ACQUISITION, before any
+ * model exists. Channel-dependent (burst structure differs), which is why wiring
+ * changes — twisting, separating, swapping conditioners — never touched it.
+ * 0.8 fixed cyl 2 outright (730 rpm -> 373, 0/57) and moved cyl 3 from always-wrong
+ * to a 50/50 coin flip per acquisition. 0.9 fixed cyl 3 but began REJECTING genuine
+ * landmarks on cyls 1 and 2 (FIRED count 57 -> 24 and 57 -> 40, with a doubled
+ * period appearing on cyl 1). No single threshold suits all three channels, because
+ * the margin between "reject the false landmark" and "keep the true one" depends on
+ * each channel's burst structure. Settled at 0.8 — where cyls 1 and 2 are spotless —
+ * and the residual half-lock is caught by HALFLOCK_STREAK below instead. */
+
+/* ---- half-lock detector ----
+ * If acquisition locks on HALF the true period, every real landmark then arrives at
+ * n=2 and the n-rounding CONFIRMS the wrong period instead of correcting it — a
+ * stable false lock (measured: 81ms and 85ms models against a true 162ms). A genuine
+ * missed landmark also gives n=2, but only occasionally; a half-lock gives an
+ * unbroken run. So: after this many CONSECUTIVE n==2 landmarks, double the model
+ * period and re-lock. Detection + correction only — nothing in the firing path
+ * changes, and if it never trips the behaviour is identical to plain 0.8. */
+#define HALFLOCK_STREAK      4        // consecutive n==2 landmarks before doubling
 #define REFBIG_DECAY_SHIFT   6        // refBig -= refBig>>6 on a non-peak edge
 
 /* Acquisition: two consecutive landmark periods must agree within +/-25% to lock. */
@@ -226,6 +252,7 @@ volatile uint32_t refBig         = 0;   // decaying peak of raw interval, for la
 volatile uint32_t phaseExt       = 0;   // MODEL: extended tick of the last model landmark
 volatile uint32_t phasePeriod    = 0;   // MODEL: rev period estimate (ticks)
 volatile uint32_t prevPeriod     = 0;   // acquisition-only: previous landmark period
+volatile uint8_t  nTwoStreak     = 0;   // consecutive n==2 landmarks (half-lock detector)
 volatile bool     synced         = false;
 volatile bool     coilCharging   = false;
 volatile uint32_t coilHighMicros = 0;
@@ -252,6 +279,7 @@ uint32_t efiPulseHighMicros = 0;            // when it went HIGH, to time its wi
 #define DBG_RELOCK    6   // >LOST_REVS since a model landmark -> re-acquire
 #define DBG_EARLY     7   // refractory: extra/early edge ignored
 #define DBG_SYNCCAND  8   // acquisition: landmark recorded, not yet agreeing
+#define DBG_HALFLOCK  9   // half-lock detected -> model period doubled
 volatile uint8_t  dbgSeq      = 0;
 volatile uint8_t  dbgEvent    = DBG_NONE;
 volatile uint32_t dbgVal      = 0;   // raw interval (SKIP) or delta-since-model (locked)
@@ -328,6 +356,26 @@ ISR(TIMER5_CAPT_vect){
 
   // How many whole revs elapsed since the model landmark (>=1; handles a missed one).
   uint32_t n = (delta + (phasePeriod >> 1)) / phasePeriod;
+
+  // Half-lock detector: a sustained run of n==2 means the model period is half the
+  // real one. Double it and re-lock rather than letting n-rounding keep confirming
+  // the error. An isolated n==2 (a genuinely missed landmark) resets the streak.
+  if (n == 2) {
+    if (++nTwoStreak >= HALFLOCK_STREAK) {
+      uint32_t dbl = phasePeriod << 1;
+      if (dbl <= PERIOD_MAX_TICKS) {
+        phasePeriod = dbl;
+        phaseExt    = capExt;          // re-anchor here; next rev re-establishes phase
+        nTwoStreak  = 0;
+        dbgEvent=DBG_HALFLOCK; dbgVal=delta; dbgPeriod=phasePeriod; dbgRefBig=refBig; dbgSeq++;
+        return;                        // skip this rev's spark; model just moved
+      }
+      nTwoStreak = 0;
+    }
+  } else {
+    nTwoStreak = 0;
+  }
+
   uint32_t predicted = phaseExt + n * phasePeriod;
   int32_t  residual  = (int32_t)(capExt - predicted);   // signed phase error, |.|<0.5*P
 
@@ -469,6 +517,7 @@ void printDebug(){
     case DBG_RELOCK:    Serial.print(F("RELOCK   ")); break;
     case DBG_EARLY:     Serial.print(F("EARLY    ")); break;
     case DBG_SYNCCAND:  Serial.print(F("SYNCCAND ")); break;
+    case DBG_HALFLOCK:  Serial.print(F("HALFLOCK ")); break;
     default:            Serial.print(F("NONE     ")); break;
   }
   Serial.print(F(" val_us="));    Serial.print(val * US_PER_TICK);

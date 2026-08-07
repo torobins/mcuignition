@@ -962,6 +962,50 @@ crank.
 > reported 3613 rpm with residual stdev 7.0 and angle stdev 1.6 — *tighter than any real channel*.
 > Never read a stable result as proof a channel is actually connected; check the rpm is plausible.
 
+## FALSE HALF-LOCK: the real cause of the "bad channels" (2026-08-03)
+
+After a day of wiring changes that each half-worked, the fault turned out to be **in the decoder,
+not the harness**. Telemetry made it unambiguous:
+
+| | model period | delta since last landmark | implied n |
+|---|---|---|---|
+| cyl 1 (good) | **161.9 ms** | 163.0 ms | **1.01** |
+| cyl 2 (bad) | **81.1 ms** | 123.8 ms | 1.53 |
+| cyl 3 (bad) | **85.3 ms** | 135.2 ms | 1.59 |
+
+The bad channels had locked on **half the true period**, and **n-rounding then sustained it**: a real
+landmark 161 ms later is counted as n=2, which *confirms* the wrong 80 ms period instead of
+correcting it. A stable false lock, invisible to every wiring test because nothing in the harness
+caused it.
+
+**Mechanism.** A landmark is any interval > `LM_NUM/LM_DEN × refBig`. At the original **0.6**, with
+`refBig` tracking the true ~90 ms landmark, anything over ~54 ms qualified — and on some channels
+the *remainder* of the revolution survives as a single gap that long. Two landmarks per rev →
+acquisition locks at half. The `0.6*P` refractory cannot help, because the false lock happens during
+**acquisition**, before any model exists.
+
+**Threshold tuning alone could not fix it** — the safe window differs per channel:
+
+| threshold | cyl 1 | cyl 2 | cyl 3 |
+|---|---|---|---|
+| 0.6 (orig) | ✅ | ❌ 730 rpm | ❌ 725 rpm |
+| **0.8** | ✅ | ✅ 373 rpm | ⚠️ 50/50 coin flip |
+| 0.9 | ⚠️ rejects (FIRED 57→24) | ⚠️ rejects (57→40) | ✅ |
+
+**Fix: threshold at 0.8 + a half-lock detector.** When the model is locked at half, real landmarks
+arrive at `n==2` *consistently*; a genuinely missed landmark gives only an isolated one. So after
+`HALFLOCK_STREAK` (4) consecutive `n==2` landmarks, double the model period and re-anchor.
+
+Detection and correction only — **nothing in the firing path changed**, and if it never trips the
+behaviour is identical to plain 0.8.
+
+**Result:** all three channels now lock on the correct period (161.7 / 162.3 / 162.0 ms). Cylinder 3
+tripped the detector once and was corrected — its median period went 85 ms → 162 ms.
+
+**Still open:** cyl 3 shows ~7 spurious short-interval readings in 50. Also, angle stdev rose on
+*all three* this run (28.7 / 24.5 / 20.4 vs 11.0 / 2.4 / 8.5 earlier at the same 0.8) — nothing in
+firmware explains that for cyls 1 and 2, so **re-test on a charged battery** before chasing it.
+
 ## Speeduino serial monitoring tools (`tools/`)
 
 Two Python scripts (pyserial) for watching Speeduino telemetry during bench tests, added
