@@ -1002,9 +1002,37 @@ behaviour is identical to plain 0.8.
 **Result:** all three channels now lock on the correct period (161.7 / 162.3 / 162.0 ms). Cylinder 3
 tripped the detector once and was corrected — its median period went 85 ms → 162 ms.
 
-**Still open:** cyl 3 shows ~7 spurious short-interval readings in 50. Also, angle stdev rose on
-*all three* this run (28.7 / 24.5 / 20.4 vs 11.0 / 2.4 / 8.5 earlier at the same 0.8) — nothing in
-firmware explains that for cyls 1 and 2, so **re-test on a charged battery** before chasing it.
+### RESOLVED on a charged battery — all three channels clean
+
+| Cylinder | rpm | range | residual | angle stdev | bad |
+|---|---|---|---|---|---|
+| 1 | 375 | 370-389 | 24.0° | 8.5° | **0/60** |
+| 2 | 374 | 371-376 | 33.1° | **0.0°** | **0/28** |
+| 3 | 373 | 359-384 | 31.9° | 2.7° | **0/42** |
+
+**All three agree on engine speed within 2 rpm, zero bad readings across 130 firings.** Cyl 2's 0.0°
+angle stdev means every spark landed at exactly the commanded angle.
+
+> **Read the outliers by WHERE they occur, not how many.** The raw capture looked worse (18/80 and
+> 12/82 "bad"), but plotting them against burst boundaries showed **every outlier sits in the first
+> ~12-18 revolutions after a stall** — the engine spinning up from standstill while the decoder
+> acquires:
+> ```
+> cyl1: |STALL| ******************.......................................... |STALL|
+> cyl3: |STALL| ************............................ |STALL| .................. |STALL|
+> ```
+> That is expected behaviour, not a defect: the ÷32 frequency gain lags a hard acceleration *by
+> design*, which is the same property that makes it immune to edge jitter once locked. Cyl 3's
+> entire second burst was 30/30 clean. Counting acquisition transients as faults made the earlier
+> "cyl 3 has 7 spurious in 50" look like a channel problem when it was mostly a tired battery plus
+> a measurement artifact.
+
+**Implication for starting:** expect a second or two of scattered timing during initial spin-up,
+then it settles. The max-advance clamp bounds that window to 25° BTDC, so it is kickback-safe. Once
+running above 500 rpm every factor improves — signal amplitude (3.2 V cranking → 21.1 V at 3500),
+burst-as-fraction-of-revolution, and rotational steadiness.
+
+**This is the ignition baseline to compare a running engine against.**
 
 ## Speeduino serial monitoring tools (`tools/`)
 
