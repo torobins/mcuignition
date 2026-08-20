@@ -1,0 +1,272 @@
+# port=COM15 baud=115200 started=2026-08-20T19:07:52.446679
+    1.156 one_cyl_ignition LANDMARK-PLL experiment build  CYL=2
+    1.156 timing: TRIGGER_ANGLE_BTDC=330 run_adv=15 crank_adv=5 below_rpm=500
+    4.141 WATCHDOG: STALL gap_us=3000012
+  276.891 cyl=2 seq=1 ev=SKIP      val_us=275241264 refBig_us=0
+  276.891 cyl=2 seq=2 ev=SKIP      val_us=6112 refBig_us=6112
+  276.891 cyl=2 seq=3 ev=REJECTED  val_us=275272448 refBig_us=7632
+  276.891 cyl=2 seq=4 ev=IMPLAUS   val_us=10192 refBig_us=9536
+  276.891 cyl=2 seq=5 ev=IMPLAUS   val_us=9696 refBig_us=9696
+  276.906 cyl=2 seq=6 ev=IMPLAUS   val_us=7968 refBig_us=9552
+  276.906 cyl=2 seq=7 ev=IMPLAUS   val_us=13184 refBig_us=11936
+  276.906 cyl=2 seq=8 ev=IMPLAUS   val_us=10016 refBig_us=11760
+  276.906 cyl=2 seq=9 ev=IMPLAUS   val_us=12880 refBig_us=12880
+  276.906 cyl=2 seq=10 ev=IMPLAUS   val_us=11136 refBig_us=12688
+  276.906 cyl=2 seq=11 ev=IMPLAUS   val_us=57808 refBig_us=15856
+  276.906 cyl=2 seq=12 ev=IMPLAUS   val_us=89120 refBig_us=19808
+  276.906 cyl=2 seq=13 ev=SKIP      val_us=6432 refBig_us=19504
+  276.906 cyl=2 seq=14 ev=SKIP      val_us=5936 refBig_us=19200
+  276.906 cyl=2 seq=15 ev=SKIP      val_us=3904 refBig_us=18912
+  276.906 cyl=2 seq=16 ev=IMPLAUS   val_us=39264 refBig_us=22992
+  276.906 cyl=2 seq=17 ev=SKIP      val_us=11408 refBig_us=22640
+  276.906 cyl=2 seq=18 ev=SKIP      val_us=4032 refBig_us=22288
+  276.906 cyl=2 seq=19 ev=SKIP      val_us=8480 refBig_us=21952
+  276.906 cyl=2 seq=20 ev=SKIP      val_us=7408 refBig_us=21616
+  276.906 cyl=2 seq=21 ev=SYNCCAND  val_us=121104 refBig_us=27008
+  276.906 cyl=2 seq=22 ev=IMPLAUS   val_us=27584 refBig_us=27584
+  276.906 cyl=2 seq=23 ev=IMPLAUS   val_us=29184 refBig_us=29184
+  276.906 cyl=2 seq=24 ev=IMPLAUS   val_us=90272 refBig_us=36480
+  276.906 cyl=2 seq=25 ev=SKIP      val_us=25440 refBig_us=35920
+  276.906 cyl=2 seq=26 ev=SKIP      val_us=9984 refBig_us=35360
+  276.906 cyl=2 seq=27 ev=SKIP      val_us=7184 refBig_us=34816
+  276.906 cyl=2 seq=28 ev=SKIP      val_us=9024 refBig_us=34272
+  276.906 cyl=2 seq=29 ev=SYNCCAND  val_us=138480 refBig_us=42832
+  276.906 cyl=2 seq=30 ev=SKIP      val_us=6224 refBig_us=42176
+  276.906 cyl=2 seq=31 ev=SKIP      val_us=25952 refBig_us=41520
+  276.906 cyl=2 seq=32 ev=SKIP      val_us=6656 refBig_us=40880
+  276.906 cyl=2 seq=33 ev=SKIP      val_us=4080 refBig_us=40256
+  276.906 cyl=2 seq=34 ev=SKIP      val_us=16784 refBig_us=39632
+  276.906 cyl=2 seq=35 ev=SYNCFIRST val_us=146080 refBig_us=49536
+  276.906 cyl=2 seq=36 ev=SKIP      val_us=4864 refBig_us=48768
+  276.906 cyl=2 seq=37 ev=SKIP      val_us=26288 refBig_us=48016
+  276.906 cyl=2 seq=38 ev=SKIP      val_us=9904 refBig_us=47280
+  276.906 cyl=2 seq=39 ev=SKIP      val_us=17072 refBig_us=46544
+  276.906 cyl=2 seq=40 ev=FIRED     val_us=145776 refBig_us=58176 period_us=146064 rpm=410 resid_us=-304 edgeToSpark_us=131856
+  276.906 cyl=2 seq=42 missed=1 ev=SKIP      val_us=3568 refBig_us=56400
+  276.906 cyl=2 seq=43 ev=SKIP      val_us=23232 refBig_us=55520
+  276.906 cyl=2 seq=44 ev=SKIP      val_us=10304 refBig_us=54656
+  276.906 cyl=2 seq=45 ev=SKIP      val_us=4608 refBig_us=53808
+  276.906 cyl=2 seq=46 ev=SKIP      val_us=14656 refBig_us=52976
+  276.906 cyl=2 seq=47 ev=FIRED     val_us=146416 refBig_us=66208 period_us=146064 rpm=410 resid_us=352 edgeToSpark_us=131856
+  276.906 cyl=2 seq=49 missed=1 ev=SKIP      val_us=3792 refBig_us=64176
+  276.906 cyl=2 seq=50 ev=SKIP      val_us=23984 refBig_us=63184
+  276.906 cyl=2 seq=51 ev=SKIP      val_us=10352 refBig_us=62208
+  276.906 cyl=2 seq=52 ev=SKIP      val_us=8624 refBig_us=61248
+  276.906 cyl=2 seq=53 ev=SKIP      val_us=10080 refBig_us=60304
+  276.906 cyl=2 seq=54 ev=FIRED     val_us=148048 refBig_us=75376 period_us=146112 rpm=410 resid_us=1984 edgeToSpark_us=131904
+  276.906 cyl=2 seq=55 ev=SKIP      val_us=3376 refBig_us=74208
+  276.906 cyl=2 seq=56 ev=SKIP      val_us=25312 refBig_us=73056
+  276.906 cyl=2 seq=57 ev=SKIP      val_us=10704 refBig_us=71920
+  276.906 cyl=2 seq=58 ev=SKIP      val_us=16464 refBig_us=70800
+  276.906 cyl=2 seq=59 ev=FIRED     val_us=151456 refBig_us=88496 period_us=146272 rpm=410 resid_us=5344 edgeToSpark_us=132048
+  276.906 cyl=2 seq=60 ev=SKIP      val_us=25456 refBig_us=87120
+  276.906 cyl=2 seq=61 ev=SKIP      val_us=10800 refBig_us=85760
+  276.906 cyl=2 seq=62 ev=SKIP      val_us=18864 refBig_us=84432
+  276.906 cyl=2 seq=63 ev=FIRED     val_us=145184 refBig_us=85376 period_us=146224 rpm=410 resid_us=-1088 edgeToSpark_us=132000
+  276.906 cyl=2 seq=64 ev=SKIP      val_us=5888 refBig_us=84048
+  276.906 cyl=2 seq=65 ev=SKIP      val_us=24784 refBig_us=82736
+  276.906 cyl=2 seq=66 ev=SKIP      val_us=29600 refBig_us=81456
+  276.906 cyl=2 seq=67 ev=FIRED     val_us=168416 refBig_us=101808 period_us=146912 rpm=408 resid_us=22192 edgeToSpark_us=142672
+  276.906 cyl=2 seq=68 ev=SKIP      val_us=10848 refBig_us=100224
+  279.062 cyl=2 seq=69 ev=SKIP      val_us=8160 refBig_us=98672
+  279.062 cyl=2 seq=70 ev=SKIP      val_us=9616 refBig_us=97136
+  279.062 cyl=2 seq=71 ev=FIRED     val_us=139136 refBig_us=95632 period_us=146656 rpm=409 resid_us=-7776 edgeToSpark_us=132384
+  279.062 cyl=2 seq=72 ev=SKIP      val_us=24064 refBig_us=94144
+  279.062 cyl=2 seq=73 ev=SKIP      val_us=10576 refBig_us=92688
+  279.062 cyl=2 seq=74 ev=SKIP      val_us=13136 refBig_us=91248
+  279.062 cyl=2 seq=75 ev=SKIP      val_us=49936 refBig_us=89824
+  279.062 cyl=2 seq=76 ev=SKIP      val_us=56048 refBig_us=88432
+  279.062 cyl=2 seq=77 ev=FIRED     val_us=216944 refBig_us=87056 period_us=148848 rpm=403 resid_us=70288 edgeToSpark_us=183792
+  279.062 cyl=2 seq=78 ev=FIRED     val_us=156320 refBig_us=94816 period_us=149072 rpm=402 resid_us=7472 edgeToSpark_us=134576
+  279.062 cyl=2 seq=79 ev=FIRED     val_us=113488 refBig_us=106944 period_us=147952 rpm=405 resid_us=-35584 edgeToSpark_us=133552
+  279.062 cyl=2 seq=80 ev=SKIP      val_us=23104 refBig_us=105280
+  279.062 cyl=2 seq=81 ev=SKIP      val_us=49104 refBig_us=103648
+  279.062 cyl=2 seq=82 ev=SKIP      val_us=53840 refBig_us=102032
+  279.062 cyl=2 seq=83 ev=SKIP      val_us=70192 refBig_us=100448
+  279.062 cyl=2 seq=84 ev=FIRED     val_us=252880 refBig_us=98880 period_us=146592 rpm=409 resid_us=-43024 edgeToSpark_us=132336
+  279.062 cyl=2 seq=85 ev=EARLY     val_us=62944 refBig_us=100576
+  279.062 cyl=2 seq=86 ev=SKIP      val_us=14720 refBig_us=99008
+  279.062 cyl=2 seq=87 ev=SKIP      val_us=9568 refBig_us=97472
+  279.062 cyl=2 seq=88 ev=FIRED     val_us=172160 refBig_us=95952 period_us=147376 rpm=407 resid_us=25568 edgeToSpark_us=145856
+  279.062 cyl=2 seq=89 ev=SKIP      val_us=5280 refBig_us=94464
+  279.062 cyl=2 seq=90 ev=SKIP      val_us=22240 refBig_us=92992
+  279.062 cyl=2 seq=91 ev=SKIP      val_us=12208 refBig_us=91552
+  279.062 cyl=2 seq=92 ev=SKIP      val_us=18800 refBig_us=90128
+  279.062 cyl=2 seq=93 ev=FIRED     val_us=170736 refBig_us=88720 period_us=148096 rpm=405 resid_us=23360 edgeToSpark_us=144640
+  279.062 cyl=2 seq=94 ev=SKIP      val_us=3584 refBig_us=87344
+  279.062 cyl=2 seq=95 ev=SKIP      val_us=22320 refBig_us=85984
+  279.062 cyl=2 seq=96 ev=SKIP      val_us=22336 refBig_us=84656
+  279.062 cyl=2 seq=97 ev=SKIP      val_us=6080 refBig_us=83344
+  279.062 cyl=2 seq=98 ev=FIRED     val_us=168160 refBig_us=93392 period_us=148720 rpm=403 resid_us=20064 edgeToSpark_us=142464
+  279.062 cyl=2 seq=99 ev=SKIP      val_us=25376 refBig_us=91936
+  279.062 cyl=2 seq=100 ev=SKIP      val_us=12288 refBig_us=90512
+  279.062 cyl=2 seq=101 ev=SKIP      val_us=16080 refBig_us=89104
+  279.062 cyl=2 seq=102 ev=FIRED     val_us=159568 refBig_us=87712 period_us=149056 rpm=402 resid_us=10848 edgeToSpark_us=135184
+  279.062 cyl=2 seq=104 missed=1 ev=SKIP      val_us=3952 refBig_us=85008
+  279.062 cyl=2 seq=105 ev=SKIP      val_us=22304 refBig_us=83680
+  279.062 cyl=2 seq=106 ev=SKIP      val_us=11136 refBig_us=82384
+  279.062 cyl=2 seq=107 ev=SKIP      val_us=8000 refBig_us=81104
+  279.062 cyl=2 seq=108 ev=SKIP      val_us=11392 refBig_us=79840
+  279.062 cyl=2 seq=109 ev=FIRED     val_us=157904 refBig_us=87216 period_us=149328 rpm=401 resid_us=8848 edgeToSpark_us=134800
+  279.062 cyl=2 seq=110 ev=SKIP      val_us=7392 refBig_us=85856
+  279.062 cyl=2 seq=111 ev=SKIP      val_us=21968 refBig_us=84528
+  279.062 cyl=2 seq=112 ev=SKIP      val_us=12080 refBig_us=83216
+  279.062 cyl=2 seq=113 ev=SKIP      val_us=18512 refBig_us=81920
+  279.062 cyl=2 seq=114 ev=FIRED     val_us=158592 refBig_us=90896 period_us=149616 rpm=401 resid_us=9264 edgeToSpark_us=135056
+  279.062 cyl=2 seq=115 ev=SKIP      val_us=26720 refBig_us=89488
+  279.062 cyl=2 seq=116 ev=SKIP      val_us=28576 refBig_us=88096
+  279.062 cyl=2 seq=117 ev=FIRED     val_us=161248 refBig_us=97840 period_us=149968 rpm=400 resid_us=11632 edgeToSpark_us=136608
+  279.062 cyl=2 seq=118 ev=SKIP      val_us=16368 refBig_us=96320
+  279.062 cyl=2 seq=119 ev=FIRED     val_us=113808 refBig_us=94816 period_us=148832 rpm=403 resid_us=-36160 edgeToSpark_us=134352
+  279.062 cyl=2 seq=120 ev=SKIP      val_us=16592 refBig_us=93344
+  279.062 cyl=2 seq=121 ev=SKIP      val_us=23744 refBig_us=91888
+  279.062 cyl=2 seq=122 ev=SKIP      val_us=11664 refBig_us=90464
+  279.062 cyl=2 seq=123 ev=SKIP      val_us=6800 refBig_us=89056
+  279.062 cyl=2 seq=124 ev=SKIP      val_us=4176 refBig_us=87680
+  279.062 cyl=2 seq=125 ev=SKIP      val_us=7712 refBig_us=86320
+  279.062 cyl=2 seq=126 ev=FIRED     val_us=128912 refBig_us=89856 period_us=148208 rpm=404 resid_us=-19920 edgeToSpark_us=133792
+  279.547 cyl=2 seq=127 ev=SKIP      val_us=6848 refBig_us=88464
+  279.547 cyl=2 seq=128 ev=SKIP      val_us=5376 refBig_us=87088
+  279.547 cyl=2 seq=129 ev=SKIP      val_us=4496 refBig_us=85728
+  279.547 cyl=2 seq=130 ev=SKIP      val_us=59456 refBig_us=84400
+  279.547 cyl=2 seq=131 ev=FIRED     val_us=157760 refBig_us=99008 period_us=148496 rpm=404 resid_us=9552 edgeToSpark_us=134048
+  279.547 cyl=2 seq=132 ev=FIRED     val_us=102656 refBig_us=97472 period_us=147056 rpm=408 resid_us=-45840 edgeToSpark_us=132752
+  282.531 WATCHDOG: STALL gap_us=3000008
+  526.219 cyl=2 seq=133 ev=REJECTED  val_us=245259440 refBig_us=97472
+  526.219 cyl=2 seq=134 ev=SKIP      val_us=6464 refBig_us=95952
+  526.219 cyl=2 seq=135 ev=SKIP      val_us=25296 refBig_us=94464
+  526.219 cyl=2 seq=136 ev=SKIP      val_us=48928 refBig_us=92992
+  526.219 cyl=2 seq=137 ev=SKIP      val_us=15696 refBig_us=91552
+  526.219 cyl=2 seq=138 ev=SYNCCAND  val_us=182688 refBig_us=90128
+  526.219 cyl=2 seq=139 ev=SKIP      val_us=8432 refBig_us=88720
+  526.219 cyl=2 seq=140 ev=SKIP      val_us=20656 refBig_us=87344
+  526.219 cyl=2 seq=141 ev=SKIP      val_us=5424 refBig_us=85984
+  526.219 cyl=2 seq=142 ev=SKIP      val_us=5248 refBig_us=84656
+  526.219 cyl=2 seq=143 ev=SKIP      val_us=17648 refBig_us=83344
+  526.219 cyl=2 seq=144 ev=SKIP      val_us=4864 refBig_us=82048
+  526.219 cyl=2 seq=145 ev=SKIP      val_us=9088 refBig_us=80768
+  526.219 cyl=2 seq=146 ev=SKIP      val_us=19008 refBig_us=79520
+  526.219 cyl=2 seq=147 ev=SKIP      val_us=9808 refBig_us=78288
+  526.219 cyl=2 seq=148 ev=SYNCFIRST val_us=190992 refBig_us=90816
+  526.219 cyl=2 seq=149 ev=SKIP      val_us=5552 refBig_us=89408
+  526.219 cyl=2 seq=150 ev=SKIP      val_us=25136 refBig_us=88016
+  526.219 cyl=2 seq=151 ev=SKIP      val_us=10896 refBig_us=86656
+  526.219 cyl=2 seq=152 ev=SKIP      val_us=17360 refBig_us=85312
+  526.219 cyl=2 seq=153 ev=FIRED     val_us=145824 refBig_us=86880 period_us=189568 rpm=316 resid_us=-45168 edgeToSpark_us=171136
+  526.219 cyl=2 seq=154 ev=SKIP      val_us=6576 refBig_us=85536
+  526.219 cyl=2 seq=155 ev=SKIP      val_us=4864 refBig_us=84208
+  526.219 cyl=2 seq=156 ev=SKIP      val_us=19696 refBig_us=82896
+  526.219 cyl=2 seq=157 ev=SKIP      val_us=19904 refBig_us=81616
+  526.219 cyl=2 seq=158 ev=SKIP      val_us=8512 refBig_us=80352
+  526.219 cyl=2 seq=159 ev=EARLY     val_us=105216 refBig_us=85184
+  526.219 cyl=2 seq=160 ev=SKIP      val_us=4688 refBig_us=83856
+  526.219 cyl=2 seq=161 ev=SKIP      val_us=3536 refBig_us=82560
+  526.219 cyl=2 seq=162 ev=SKIP      val_us=22288 refBig_us=81280
+  526.219 cyl=2 seq=163 ev=SKIP      val_us=21888 refBig_us=80016
+  526.219 cyl=2 seq=164 ev=SKIP      val_us=6736 refBig_us=78768
+  526.219 cyl=2 seq=165 ev=FIRED     val_us=256272 refBig_us=91920 period_us=191648 rpm=313 resid_us=66704 edgeToSpark_us=217104
+  526.219 cyl=2 seq=166 ev=SKIP      val_us=25280 refBig_us=90496
+  526.219 cyl=2 seq=167 ev=SKIP      val_us=11536 refBig_us=89088
+  526.219 cyl=2 seq=168 ev=SKIP      val_us=8544 refBig_us=87696
+  526.219 cyl=2 seq=169 ev=SKIP      val_us=9120 refBig_us=86336
+  526.219 cyl=2 seq=170 ev=FIRED     val_us=199328 refBig_us=86480 period_us=191888 rpm=312 resid_us=7680 edgeToSpark_us=173232
+  526.219 cyl=2 seq=172 missed=1 ev=SKIP      val_us=4336 refBig_us=83808
+  526.219 cyl=2 seq=173 ev=SKIP      val_us=4768 refBig_us=82512
+  526.219 cyl=2 seq=174 ev=SKIP      val_us=13008 refBig_us=81232
+  526.219 cyl=2 seq=175 ev=SKIP      val_us=7152 refBig_us=79968
+  526.219 cyl=2 seq=176 ev=FIRED     val_us=129712 refBig_us=88656 period_us=189936 rpm=315 resid_us=-62176 edgeToSpark_us=171456
+  526.219 cyl=2 seq=177 ev=SKIP      val_us=10624 refBig_us=87280
+  526.219 cyl=2 seq=178 ev=SKIP      val_us=4352 refBig_us=85920
+  526.219 cyl=2 seq=179 ev=SKIP      val_us=3648 refBig_us=84592
+  526.219 cyl=2 seq=180 ev=SKIP      val_us=4000 refBig_us=83280
+  526.219 cyl=2 seq=181 ev=SKIP      val_us=3696 refBig_us=81984
+  526.219 cyl=2 seq=183 missed=1 ev=SKIP      val_us=3328 refBig_us=79456
+  526.219 cyl=2 seq=185 missed=1 ev=SKIP      val_us=3264 refBig_us=77008
+  526.219 cyl=2 seq=187 missed=1 ev=SKIP      val_us=3008 refBig_us=74624
+  526.219 cyl=2 seq=188 ev=SKIP      val_us=2848 refBig_us=73472
+  526.219 cyl=2 seq=190 missed=1 ev=SKIP      val_us=2544 refBig_us=71216
+  526.219 cyl=2 seq=191 ev=SKIP      val_us=9984 refBig_us=70112
+  526.219 cyl=2 seq=192 ev=SKIP      val_us=35168 refBig_us=69024
+  526.219 cyl=2 seq=193 ev=SKIP      val_us=2912 refBig_us=67952
+  526.219 cyl=2 seq=194 ev=SKIP      val_us=9984 refBig_us=66896
+  526.219 cyl=2 seq=195 ev=FIRED     val_us=142288 refBig_us=83616 period_us=188432 rpm=318 resid_us=-47648 edgeToSpark_us=170112
+  526.219 cyl=2 seq=196 ev=EARLY     val_us=21856 refBig_us=82320
+  526.219 cyl=2 seq=197 ev=SKIP      val_us=42416 refBig_us=81040
+  526.219 cyl=2 seq=198 ev=FIRED     val_us=158432 refBig_us=94160 period_us=187488 rpm=320 resid_us=-30000 edgeToSpark_us=169248
+  526.219 cyl=2 seq=199 ev=EARLY     val_us=76240 refBig_us=102480
+  526.219 cyl=2 seq=200 ev=SKIP      val_us=10480 refBig_us=100880
+  526.219 cyl=2 seq=202 missed=1 ev=SKIP      val_us=2832 refBig_us=97776
+  528.328 cyl=2 seq=203 ev=SKIP      val_us=3168 refBig_us=96256
+  528.328 cyl=2 seq=205 missed=1 ev=SKIP      val_us=3744 refBig_us=93280
+  528.328 cyl=2 seq=206 ev=SKIP      val_us=31696 refBig_us=91824
+  528.328 cyl=2 seq=207 ev=SKIP      val_us=57552 refBig_us=90400
+  528.328 cyl=2 seq=208 ev=SKIP      val_us=27504 refBig_us=88992
+  528.328 cyl=2 seq=209 ev=SKIP      val_us=9488 refBig_us=87616
+  528.328 cyl=2 seq=210 ev=FIRED     val_us=312896 refBig_us=86256 period_us=185536 rpm=323 resid_us=-62080 edgeToSpark_us=167488
+  528.328 cyl=2 seq=211 ev=SKIP      val_us=6672 refBig_us=84912
+  528.328 cyl=2 seq=212 ev=SKIP      val_us=25888 refBig_us=83600
+  528.328 cyl=2 seq=213 ev=SKIP      val_us=10704 refBig_us=82304
+  528.328 cyl=2 seq=214 ev=SKIP      val_us=18816 refBig_us=81024
+  528.328 cyl=2 seq=215 ev=EARLY     val_us=94320 refBig_us=86560
+  528.328 cyl=2 seq=216 ev=SKIP      val_us=3824 refBig_us=85216
+  528.328 cyl=2 seq=217 ev=SKIP      val_us=25088 refBig_us=83888
+  528.328 cyl=2 seq=218 ev=SKIP      val_us=11840 refBig_us=82592
+  528.328 cyl=2 seq=219 ev=SKIP      val_us=18288 refBig_us=81312
+  528.328 cyl=2 seq=220 ev=FIRED     val_us=238544 refBig_us=85184 period_us=187184 rpm=320 resid_us=53008 edgeToSpark_us=202096
+  528.328 cyl=2 seq=222 missed=1 ev=SKIP      val_us=4352 refBig_us=82560
+  528.328 cyl=2 seq=223 ev=SKIP      val_us=22176 refBig_us=81280
+  528.328 cyl=2 seq=224 ev=SKIP      val_us=10752 refBig_us=80016
+  528.328 cyl=2 seq=225 ev=SKIP      val_us=17760 refBig_us=78768
+  528.328 cyl=2 seq=226 ev=FIRED     val_us=193616 refBig_us=86224 period_us=187376 rpm=320 resid_us=6432 edgeToSpark_us=169152
+  528.328 cyl=2 seq=228 missed=1 ev=SKIP      val_us=4032 refBig_us=83568
+  528.328 cyl=2 seq=229 ev=SKIP      val_us=22624 refBig_us=82272
+  528.328 cyl=2 seq=230 ev=SKIP      val_us=29456 refBig_us=80992
+  528.328 cyl=2 seq=231 ev=FIRED     val_us=154336 refBig_us=87920 period_us=186336 rpm=321 resid_us=-33040 edgeToSpark_us=168208
+  528.328 cyl=2 seq=232 ev=SKIP      val_us=4464 refBig_us=86560
+  528.328 cyl=2 seq=233 ev=SKIP      val_us=23504 refBig_us=85216
+  528.328 cyl=2 seq=234 ev=SKIP      val_us=12736 refBig_us=83888
+  528.328 cyl=2 seq=235 ev=SKIP      val_us=15136 refBig_us=82592
+  528.328 cyl=2 seq=236 ev=FIRED     val_us=118960 refBig_us=92016 period_us=184224 rpm=325 resid_us=-67376 edgeToSpark_us=166304
+  528.328 cyl=2 seq=237 ev=SKIP      val_us=25568 refBig_us=90592
+  528.328 cyl=2 seq=238 ev=SKIP      val_us=12192 refBig_us=89184
+  528.328 cyl=2 seq=239 ev=SKIP      val_us=18112 refBig_us=87792
+  528.328 cyl=2 seq=240 ev=EARLY     val_us=86800 refBig_us=89872
+  528.328 cyl=2 seq=241 ev=SKIP      val_us=3392 refBig_us=88480
+  528.328 cyl=2 seq=242 ev=SKIP      val_us=22928 refBig_us=87104
+  528.328 cyl=2 seq=243 ev=SKIP      val_us=10592 refBig_us=85744
+  528.328 cyl=2 seq=244 ev=SKIP      val_us=21168 refBig_us=84416
+  528.328 cyl=2 seq=245 ev=FIRED     val_us=234624 refBig_us=89744 period_us=185792 rpm=322 resid_us=50400 edgeToSpark_us=198768
+  528.328 cyl=2 seq=246 ev=SKIP      val_us=24832 refBig_us=88352
+  528.328 cyl=2 seq=247 ev=SKIP      val_us=21104 refBig_us=86976
+  528.328 cyl=2 seq=248 ev=SKIP      val_us=8784 refBig_us=85632
+  528.328 cyl=2 seq=249 ev=FIRED     val_us=187760 refBig_us=88928 period_us=185840 rpm=322 resid_us=1968 edgeToSpark_us=167760
+  528.328 cyl=2 seq=250 ev=SKIP      val_us=3616 refBig_us=87552
+  528.328 cyl=2 seq=251 ev=SKIP      val_us=22704 refBig_us=86192
+  528.328 cyl=2 seq=252 ev=SKIP      val_us=27328 refBig_us=84848
+  528.328 cyl=2 seq=253 ev=FIRED     val_us=142528 refBig_us=87152 period_us=184480 rpm=325 resid_us=-43312 edgeToSpark_us=166544
+  528.328 cyl=2 seq=254 ev=SKIP      val_us=5424 refBig_us=85792
+  528.328 cyl=2 seq=255 ev=SKIP      val_us=24704 refBig_us=84464
+  528.328 cyl=2 seq=0 ev=SKIP      val_us=11968 refBig_us=83152
+  528.328 cyl=2 seq=1 ev=SKIP      val_us=15040 refBig_us=81856
+  528.328 cyl=2 seq=2 ev=EARLY     val_us=108592 refBig_us=89344
+  528.328 cyl=2 seq=3 ev=SKIP      val_us=5120 refBig_us=87952
+  528.328 cyl=2 seq=4 ev=SKIP      val_us=22688 refBig_us=86592
+  528.328 cyl=2 seq=5 ev=SKIP      val_us=12688 refBig_us=85248
+  528.328 cyl=2 seq=6 ev=SKIP      val_us=9456 refBig_us=83920
+  528.328 cyl=2 seq=7 ev=SKIP      val_us=7360 refBig_us=82624
+  528.328 cyl=2 seq=8 ev=FIRED     val_us=279072 refBig_us=103280 period_us=181664 rpm=330 resid_us=-89888 edgeToSpark_us=164000
+  528.328 cyl=2 seq=9 ev=EARLY     val_us=2784 refBig_us=101680
+  528.328 cyl=2 seq=10 ev=EARLY     val_us=74656 refBig_us=100096
+  529.203 cyl=2 seq=11 ev=FIRED     val_us=173856 refBig_us=98544 period_us=181408 rpm=330 resid_us=-7808 edgeToSpark_us=163760
+  529.203 cyl=2 seq=12 ev=EARLY     val_us=79136 refBig_us=97008
+  529.203 cyl=2 seq=13 ev=SKIP      val_us=6752 refBig_us=95504
+  529.203 cyl=2 seq=14 ev=SKIP      val_us=6032 refBig_us=94016
+  529.203 cyl=2 seq=15 ev=SKIP      val_us=7168 refBig_us=92560
+  529.203 cyl=2 seq=16 ev=SKIP      val_us=53696 refBig_us=91120
+  529.203 cyl=2 seq=17 ev=FIRED     val_us=246048 refBig_us=93264 period_us=183424 rpm=327 resid_us=64640 edgeToSpark_us=208448
+  529.203 cyl=2 seq=18 ev=SKIP      val_us=19600 refBig_us=91808
+  529.203 cyl=2 seq=19 ev=FIRED     val_us=172160 refBig_us=96000 period_us=183072 rpm=327 resid_us=-11264 edgeToSpark_us=165264
+  529.203 cyl=2 seq=20 ev=EARLY     val_us=85632 refBig_us=94512
+  529.203 cyl=2 seq=21 ev=FIRED     val_us=190832 refBig_us=105200 period_us=183312 rpm=327 resid_us=7760 edgeToSpark_us=165488
+  529.203 cyl=2 seq=22 ev=EARLY     val_us=108720 refBig_us=103568
+  532.187 WATCHDOG: STALL gap_us=3000008

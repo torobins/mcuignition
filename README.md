@@ -2,7 +2,64 @@
 
 Standalone electronic ignition for a 3-cylinder two-stroke engine, built from three identical Arduino Mega 2560 boards — one per cylinder. Each board reads its own VR (pulse coil) sensor, cleans up the trigger signal internally, and fires a smart ignition coil at a fixed advance angle. No shared "cleaner" board and no cross-wiring between cylinders — every board is a complete, self-sufficient ignition channel.
 
-## Current status & next steps (2026-08-03, end of session)
+## Current status (2026-08-20) — FIRST ENGINE TEST. Combustion achieved, start blocked on timing scatter.
+
+**The engine fired.** First combustion on the custom ignition. It is not runnable yet: spark
+timing scatter causes kickback, and the cause is the breadboard, not the decoder.
+
+### What was proven
+
+- **Fuel system is good.** Ear clamps fixed the T-fitting leak; pressure holds static.
+- **All three channels agree on rpm within 2 rpm** (411.7 / 410.3 / 412.4), which is the same
+  standard as the 2026-08-03 validation. **The decoder core is sound.**
+- **Combustion occurred** on residual fuel - compression and spark energy are adequate.
+- **D3 strobe confirmed** firing on boards 1 and 2 after reflash.
+
+### What blocks a start
+
+**Spark angle scatter of 20-48 deg standard deviation**, against a validated 12-14 deg.
+Commanded cranking advance is 5 deg BTDC, so with that spread a meaningful fraction of sparks
+land well before TDC. **Kickback was felt directly during the start attempt.** Cranking was
+stopped.
+
+Mechanism: the max-advance clamp bounds spark to 25 deg BTDC *relative to the landmark it
+believes it found*. A misclassified noise pulse moves that reference, so the bound is measured
+from the wrong place and the spark lands anywhere. The scatter is false landmarks, not a
+scheduling bug.
+
+### Hypotheses tested tonight
+
+| Hypothesis | Verdict |
+|---|---|
+| Cylinder 3 half-locking again (2x rpm) | **CONFIRMED, then FIXED** - twisting the B return around all three pulser leads cured it. Cyl 3 went from 1.85x rpm and 20 IMPLAUS to in-family and 4 IMPLAUS, the *best* channel. Same root cause as 2026-08-03: wiring dress. |
+| Scatter caused by the D3 strobe move (PORTE shared with coil) | **RULED OUT.** The first dry crank, on the *old* D6/D7/D8 firmware, already showed 89-101 deg scatter. The reflash slightly improved it. |
+| Scatter caused by compression / intra-rev speed variation (plugs in vs the plugs-out validation run) | **NOT SUPPORTED.** Removing compression improved cyl 1 (43.8->19.7 deg) and cyl 3 (48.4->32.2 deg) but made cyl 2 *worse* (21.4->39.7 deg). A real physical effect would move all three the same way. |
+| Combustion perturbing crank speed | **CONFIRMED as a confound.** With combustion: rpm spread 5% and scatter 72-89 deg. Without: spread <2 rpm and scatter 20-48 deg. Never judge decoder quality on a firing engine. |
+
+**Confound to note:** the plugs-out run cranked *slower* (356 rpm) than plugs-in (411 rpm),
+which is backwards - no compression should spin faster. The battery was sagging after repeated
+cranking. The two runs were therefore not at comparable conditions; do not over-read the A/B.
+
+### Conclusion
+
+Scatter of 20-48 deg that **reshuffles unpredictably between channels and between runs** is the
+same signature as the earlier "every test is a little different" problem. It points at
+connection instability - **the breadboard** - not the decoder. This is exactly the limitation
+called out before the carrier board was designed.
+
+**Next step is the carrier board** (`hardware/carrier_board.md`), or at minimum soldering the
+pulser and ground connections. A start attempt is not safe until the scatter comes down.
+
+Logs: `bench_logs/drycrank_COM*_2026-08-20_*.txt`, `postfix_COM*_2026-08-20_*.txt`,
+`plugsin_nospark_COM*_2026-08-20_*.txt` (the last file contains two bursts - plugs in, then
+plugs out; split them on the timestamp gap).
+
+Capture tool: `tools/tri_capture.py` logs all three boards on one shared clock. Use it for any
+multi-channel judgement - single-channel logs hide which faults are common-mode.
+
+---
+
+## Previous status (2026-08-03)
 
 **IGNITION IS DONE. EFI IS DONE. Next step is plumbing fuel and attempting a start.**
 

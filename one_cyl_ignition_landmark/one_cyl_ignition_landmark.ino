@@ -35,7 +35,7 @@
  * light. Same 15ms WDT + MAX_DWELL safety envelope as production.
  *
  * This is still the experiment/debug build: it also drives a calibration STROBE on
- * D6/D7/D8 (flash at the spark instant, for reading flywheel marks) and prints
+ * D3 (flash at the spark instant, for reading flywheel marks) and prints
  * telemetry. Once proven on fuel, port the decoder into production one_cyl_ignition.ino.
  *
  *   VR sensor -> conditioner -> ICP5 (pin 48, Timer5 capture, rising edges)
@@ -184,16 +184,28 @@ void wdt_early_disable(void){
 #define COIL_HIGH() (COIL_PORT |=  _BV(COIL_BIT))
 #define COIL_LOW()  (COIL_PORT &= ~_BV(COIL_BIT))
 
-/* ---- timing-light STROBE pins (D6/D7/D8 = PH3/PH4/PH5) ----
+/* ---- timing-light STROBE pin (D3 = PE5) ----
  * A short bright flash at the exact spark instant, for reading the flywheel timing
  * marks like a timing light without depending on the inductive pickup triggering on
- * the smart coil's HT pulse. Drives THREE pins together, one LED (+ its own series R,
- * ~100R) per pin to GND: sharing one pin across 3 LEDs oversourced it (~54mA) and
- * sagged them dim, so each LED gets its own pin's ~18mA at full brightness instead.
- * (Still not enough in daylight? Drive the LEDs from +12V through an NPN transistor.) */
-#define STROBE_DDR   DDRH
-#define STROBE_PORT  PORTH
-#define STROBE_MASK  (_BV(PH3) | _BV(PH4) | _BV(PH5))   // D6, D7, D8 -- one LED each
+ * the smart coil's HT pulse.
+ *
+ * Was D6/D7/D8 (PH3/PH4/PH5), three pins driving one LED each: sharing a single pin
+ * across 3 LEDs oversourced it (~54mA) and sagged them dim, so each LED got its own
+ * pin's ~18mA instead. Moved to a SINGLE pin (D3) for PCB routing. That is ~1/3 the
+ * light of the 3-LED bank, so if it is hard to read in daylight do NOT go back to
+ * multiple pins -- drive one high-output LED from +12V through an NPN switched by D3,
+ * which beats the 3-LED bank outright and stays within the 20mA/pin budget.
+ *
+ * NOTE: this shares PORTE with the coil pin (PE3). STROBE_LOW() runs in loop() while
+ * COIL_HIGH()/COIL_LOW() run in the Timer5 compare ISRs, so a read-modify-write race
+ * on PORTE could clobber the coil bit -- which would mean a stuck-on or dropped dwell.
+ * It is safe ONLY because STROBE_MASK is a single compile-time bit and PORTE is in the
+ * sbi/cbi-addressable I/O range (0x00-0x1F), so gcc emits an atomic single-instruction
+ * cbi/sbi rather than a load/modify/store. If you ever add a second strobe bit on
+ * PORTE, that guarantee is gone and the loop() write must be wrapped in ATOMIC_BLOCK. */
+#define STROBE_DDR   DDRE
+#define STROBE_PORT  PORTE
+#define STROBE_MASK  (_BV(PE5))                        // D3 -- one LED + ~100R series R
 #define STROBE_HIGH() (STROBE_PORT |=  STROBE_MASK)
 #define STROBE_LOW()  (STROBE_PORT &= ~STROBE_MASK)
 #define STROBE_US     1000UL         // flash width (~2.8 deg at 460rpm; wider = easier to see)
