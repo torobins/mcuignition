@@ -2,7 +2,78 @@
 
 Standalone electronic ignition for a 3-cylinder two-stroke engine, built from three identical Arduino Mega 2560 boards — one per cylinder. Each board reads its own VR (pulse coil) sensor, cleans up the trigger signal internally, and fires a smart ignition coil at a fixed advance angle. No shared "cleaner" board and no cross-wiring between cylinders — every board is a complete, self-sufficient ignition channel.
 
-## Current status (2026-08-20) — FIRST ENGINE TEST. Combustion achieved, start blocked on timing scatter.
+## Current status (2026-08-20, late) — **THE ENGINE STARTED AND IDLED.**
+
+Stock CDI on spark, Speeduino on fuel, one MCU board supplying the EFI trigger. It caught,
+revved to ~1958 rpm, and settled to a **steady 1076 rpm idle held within +/-1 rpm** for over
+three seconds. (Both logs end mid-run because the laptop battery died, not the engine.)
+
+**Sync status 2, Sync Loss # 0 for the entire run** — the trigger chain held from 419 rpm
+cranking through 1958 rpm and back down to idle with zero losses.
+
+### What made it work: a hard decoder lockup, fixed
+
+`refBig` (the decaying peak-tracker that classifies landmarks) could **freeze permanently in an
+arithmetic dead zone**. A long noise burst decays it by 1/64 per non-peak edge; once it fell
+below 4 ticks BOTH shifts truncated to zero:
+
+```
+rise:  capped = refBig + (refBig>>2) = refBig    -> could never grow
+decay: refBig -= (refBig>>6) = 0                 -> could never shrink
+```
+
+It froze at 2 ticks (32us) and the channel was **bricked until reset**. With refBig=2 the
+landmark test degenerates to `interval > 1.4 ticks`, so every edge classifies as a landmark.
+
+Seen as 349 IMPLAUS / 242 REJECTED / **0 FIRED** with `refBig_us=32` constant through an entire
+log — while the real ~90-102ms landmarks were plainly present in the same capture.
+
+Fixed by guarding both shifts against truncating to zero and flooring refBig at
+`REFBIG_MIN_TICKS` (half the shortest plausible revolution). Same setup, stock CDI actively
+sparking beside the tap:
+
+| | before | after |
+|---|---|---|
+| FIRED | **0** | **29** |
+| IMPLAUS | 349 | 14 |
+| REJECTED | 242 | 3 |
+| rpm | — | **415.2 (sd 1.0)** |
+
+This likely also explains historic "channel goes bad and stays bad" behaviour — any long enough
+noise burst could permanently disable a channel.
+
+### Current architecture (interim)
+
+- **Spark: stock Yamaha CDI**, stock config, stock coils. Proven, correct timing, no kickback.
+- **Fuel: Speeduino**, Alpha-N.
+- **Trigger: one MCU board.** Cylinder 2's pulser is split — one leg to the CDI, one to the VR
+  conditioner -> MCU -> D9 -> Speeduino pin 19. Damping on the tapped channel is **9.4k
+  (2x 4.7k series) + 10nF**, NOT 470R: 470R would drop the CDI's trigger to ~1.6V against
+  Yamaha's 2.4V cranking spec.
+- The three-board custom ignition is **not** driving coils yet - see the scatter issue below.
+
+### Open tune items
+
+- **Injector duty hit 108%** at 1958 rpm (PW 33.1ms vs a 30.6ms cycle). The injectors were held
+  wide open - that is why it bogged from 1958 back to 1076 instead of picking up. Keep duty
+  under ~85%.
+- **Required Fuel looks wrong again.** Back-calculating from the log (PW 33.48ms, VE 80%,
+  Gammae 187%) implies **~21-22ms, not the 9.0ms** derived from real injector/displacement
+  figures. Approximate - Speeduino also folds in injector open time and squirts-per-cycle - but
+  worth checking, because *the same thing bit us before when the value was not burned to
+  EEPROM.* Burning 9.0 would put PW near 14ms.
+- **VE table is flat 80%**, so fuel does not vary with anything: constant PW means duty climbs
+  linearly with rpm until saturation. At 6000 rpm the whole cycle is 10ms, so PW must be under
+  ~8.5ms for 85% duty. Flat was the right call for a first start; it cannot stay flat.
+- TPS reading 0.0 in the log is just a **closed throttle**, not a calibration fault.
+
+Logs: `bench_logs/firststart_COM13_2026-08-20_20.45.48.txt`,
+`bench_logs/refbigfix_COM13_2026-08-20_20.36.29.txt`,
+and the Speeduino datalog `2026-08-20_20.51.22.msl`.
+
+---
+
+## Earlier the same day (2026-08-20) — custom-ignition test. Combustion achieved, start blocked on timing scatter.
 
 **The engine fired.** First combustion on the custom ignition. It is not runnable yet: spark
 timing scatter causes kickback, and the cause is the breadboard, not the decoder.
