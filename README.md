@@ -52,20 +52,76 @@ noise burst could permanently disable a channel.
   Yamaha's 2.4V cranking spec.
 - The three-board custom ignition is **not** driving coils yet - see the scatter issue below.
 
+### KNOWN DEFECT — the EFI trigger keeps running after the engine stops
+
+**Speeduino reports a phantom steady rpm for ~3 seconds after the engine actually dies, and
+keeps injecting fuel the whole time.**
+
+The D9 EFI train **free-runs off the PLL model and is never re-anchored to an edge** (a
+deliberate v2 fix, to stop raw-edge jitter leaking into the output — see the `EFI_*` comment
+block). But nothing stops the train when landmarks cease. When the engine stops, the train
+keeps emitting at its last spacing until the 3-second `STALL` watchdog fires.
+
+Caught 2026-08-20 by comparing the two logs over the same moment:
+
+| | Speeduino | Ignition board |
+|---|---|---|
+| rpm | pinned **2182-2183**, +/-1 | wandering **2015 -> 2176** |
+
+A real unloaded 2-stroke wanders; pinned-to-1-rpm is a clock, not an engine. The board log has
+its last real landmark at t=34.4s, then `RELOCK`, then `WATCHDOG: STALL` exactly 3s later.
+
+**Consequences:** ~3 seconds of raw fuel injected into a stopped engine (flooding, fouled
+plugs, fuel out the exhaust into a hot pipe), and any rpm-derived judgement in that window is
+fiction. It also means the earlier "steady 1076 rpm idle" was part real, part phantom.
+
+**Fix needed:** gate the EFI train on liveness — stop it when sync is lost, or if no landmark
+arrives within ~1.5x the model period, rather than waiting on the 3-second stall watchdog.
+
+**Until it is fixed:** do not trust Speeduino rpm in the last ~3 seconds of any run, and cross-
+check against the board capture, which shows the truth.
+
 ### Open tune items
 
-- **Injector duty hit 108%** at 1958 rpm (PW 33.1ms vs a 30.6ms cycle). The injectors were held
-  wide open - that is why it bogged from 1958 back to 1076 instead of picking up. Keep duty
-  under ~85%.
-- **Required Fuel looks wrong again.** Back-calculating from the log (PW 33.48ms, VE 80%,
-  Gammae 187%) implies **~21-22ms, not the 9.0ms** derived from real injector/displacement
-  figures. Approximate - Speeduino also folds in injector open time and squirts-per-cycle - but
-  worth checking, because *the same thing bit us before when the value was not burned to
-  EEPROM.* Burning 9.0 would put PW near 14ms.
-- **VE table is flat 80%**, so fuel does not vary with anything: constant PW means duty climbs
-  linearly with rpm until saturation. At 6000 rpm the whole cycle is 10ms, so PW must be under
-  ~8.5ms for 85% duty. Flat was the right call for a first start; it cannot stay flat.
-- TPS reading 0.0 in the log is just a **closed throttle**, not a calibration fault.
+**FIXED THIS SESSION: injector saturation.** At VE 80 the injectors ran to **108% duty** at
+1958 rpm (PW 33.1ms against a 30.6ms cycle) - held wide open, which is why the engine bogged
+from 1958 back to 1076 instead of picking up. Dropping the flat VE table 80 -> 30 gave:
+
+| | VE 80 | VE 30 |
+|---|---|---|
+| PW at idle | 33.5 ms | **14.4 ms** |
+| Duty at ~2000 rpm | **108%** | **49%** |
+| Behaviour | bogged 1958 -> 1076 | ran up and held ~2100 rpm |
+
+After-start enrichment then tapered correctly (Gammae 187 -> 172 with PW following
+14.4 -> 13.35), rather than sitting pinned.
+
+**VE 30 may be slightly lean** - it sputtered before dying. Next step is bracketing upward,
+40-45, one value at a time.
+
+**Two dead ends, both checked and both wrong** (recorded so they are not re-derived):
+
+- *Required Fuel is not the problem* - it reads **9.0ms** and is burned.
+- *Injector open time is not the problem* - it reads **1.0ms**, with battery-voltage correction
+  giving ~1.25ms at 11.2V.
+
+There remains an **unexplained ~2.3x factor** between the computed PW
+(`9.0 x 0.80 x 1.87 + 1.25 = 14.7ms`) and the 33.5ms observed at VE 80. The likely place to
+look is how Speeduino divides `reqFuel` across squirts for a **two-stroke** with
+**1 squirt/cycle**, together with the **Injector Staging "Simultaneous" vs Injector Layout
+"Sequential"** mismatch in Engine Constants. Not chased yet - the VE table is a direct
+empirical lever and was used instead.
+
+**The VE table cannot stay flat.** Constant PW means duty climbs linearly with rpm until
+saturation: at 6000 rpm the whole cycle is 10ms, so PW must stay under ~8.5ms for 85% duty.
+
+**Injector Duty Limit is set to 85% but the log recorded 108%** - the limit did not clamp. Do
+not rely on it as protection.
+
+**It idles fast** - ~2100 rpm with the throttle fully closed. Throttle stop, intake air leak, or
+just a happy unloaded 2-stroke; not yet determined.
+
+TPS reading 0.0 in the logs is just a **closed throttle**, not a calibration fault.
 
 Logs: `bench_logs/firststart_COM13_2026-08-20_20.45.48.txt`,
 `bench_logs/refbigfix_COM13_2026-08-20_20.36.29.txt`,
