@@ -1,0 +1,4 @@
+# port=COM13 baud=115200 started=2026-08-21T10:08:30.082655
+    1.156 one_cyl_ignition LANDMARK-PLL experiment build  CYL=1
+    1.156 timing: TRIGGER_ANGLE_BTDC=330 run_adv=15 crank_adv=5 below_rpm=500
+    4.141 WATCHDOG: STALL gap_us=3000012

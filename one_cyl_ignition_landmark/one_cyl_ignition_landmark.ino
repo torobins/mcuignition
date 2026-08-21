@@ -133,6 +133,31 @@ void wdt_early_disable(void){
  * period and re-lock. Detection + correction only — nothing in the firing path
  * changes, and if it never trips the behaviour is identical to plain 0.8. */
 #define HALFLOCK_STREAK      4        // consecutive n==2 landmarks before doubling
+
+/* ---- SPEEDUP detector: the mirror of HALFLOCK ----
+ * HALFLOCK fixes "model period too SHORT". This fixes "model period too LONG", which is
+ * what a hard acceleration produces and what broke the first stock-CDI start attempts.
+ *
+ * Observed 2026-08-21 (bench_logs/killcrank_COM13_2026-08-21_09.35.42.txt): the board
+ * acquired cleanly at cranking speed -- SYNCFIRST val_us=149040, then 51 firings at
+ * 400.1rpm sd 3.5 -- and then the engine caught and went to ~2200rpm. Landmarks now
+ * arrived every ~27ms against a ~149ms model, i.e. below the 0.6*P refractory threshold,
+ * so ALL of them were discarded as EARLY (40 of them). The model therefore never got an
+ * update, delta grew past LOST_REVS, and the decoder RELOCKed onto whatever interval
+ * happened to be present -- frequently a sub-multiple (SYNCFIRST val_us=27760 = 2161rpm).
+ *
+ * The PLL alone cannot rescue this: frequency correction is residual>>5, ~3% per landmark,
+ * so a 5.5x speed change needs ~50 revolutions of updates it is never given.
+ *
+ * So: if several CONSECUTIVE landmark-to-landmark intervals agree with each other, that is
+ * the new engine speed, not noise -- adopt it. Agreement is the same +/-25% test used at
+ * acquisition, which is stronger corroboration than HALFLOCK's bare streak, so 3 is enough
+ * where HALFLOCK needs 4. At 2200rpm that is ~80ms of transient before the model catches up.
+ *
+ * Note this compares LANDMARK-TO-LANDMARK intervals, not delta: while landmarks are being
+ * discarded phaseExt does not advance, so successive deltas GROW (27ms, 54ms, 81ms...) and
+ * would never agree. lastLmExt tracks the previous landmark for this reason. */
+#define EARLY_STREAK         3        // consecutive agreeing EARLY intervals before adopting
 #define REFBIG_DECAY_SHIFT   6        // refBig -= refBig>>6 on a non-peak edge
 
 /* refBig floor -- FIXES A HARD DECODER LOCKUP found 2026-08-20 (stock-CDI EMI test).
@@ -172,6 +197,38 @@ void wdt_early_disable(void){
  * what the relaxed threshold lets through. */
 #define COLD_ACQ_MAX_RPM     600
 #define COLD_ACQ_MIN_TICKS   US_TO_TICKS(60000000UL / COLD_ACQ_MAX_RPM)
+
+/* ---- cold-acquisition WINDOW -- TRIED 2026-08-21 AND REVERTED. Do not re-add. ----
+ *
+ * The problem it was meant to solve is real: the guard above has no expiry, and its
+ * premise ("only cranking speed is possible") stops holding once the engine has caught
+ * and revved. On the stock CDI the engine lights off almost at once, so it passed 600rpm
+ * before two agreeing landmark periods had been seen, and from then on EVERY genuine
+ * landmark looked implausible. 0 FIRED, 405 IMPLAUS, rejected periods implying
+ * 600-3100rpm, Speeduino at RPM 0 / PW 0 / sync 0 for the whole run, injecting nothing.
+ * See bench_logs/portinj_ve80_COM13_2026-08-21_09.06.52.txt.
+ *
+ * But a 1.5s time box is the WRONG mechanism, and it made things worse. It cannot tell
+ * "engine caught early" from "about to lock onto a sub-multiple", and once it expired the
+ * decoder locked at 24608us (2438rpm) while the engine was near 600rpm -- a 4x error.
+ * Speeduino then injected at up to 4x the correct rate, which no VE value can compensate.
+ * See bench_logs/coldacqfix_COM13_2026-08-21_09.19.12.txt: repeated
+ * SYNCFIRST(24608) -> real landmark 50956us later -> RELOCK(96192). Lengthening the
+ * window does not help either; it just blocks acquisition for longer.
+ *
+ * The guard at 600rpm would have rejected that acquisition outright (min period 100ms),
+ * exactly as its own comment predicted. It is the strongest protection against
+ * sub-multiple lock that exists in this decoder, and it must not be traded away.
+ *
+ * OPERATIONAL WORKAROUND until the multi-lock detector is generalised: ground the kill
+ * wire (W) and crank for ~2s so the board acquires at genuine cranking speed, then
+ * release it to let the engine start. That guarantees the acquisition window the guard
+ * assumes, with no code change.
+ *
+ * REAL FIX (not yet done): generalise HALFLOCK from n==2 to any sustained integer n>=2,
+ * so a sub-multiple lock is corrected after acquisition instead of being prevented at
+ * it. Note LOST_REVS=3 currently fires RELOCK before a 4x lock can be characterised, so
+ * that interacts and needs thinking about together. */
 
 /* Acquisition: two consecutive landmark periods must agree within +/-25% to lock. */
 #define SYNC_AGREE_NUM       4
@@ -292,7 +349,10 @@ void wdt_early_disable(void){
  *
  * Re-arming is automatic and needs no extra state: efiTrainRunning==false is already the
  * arm condition on the next locked landmark. */
-#define EFI_LIVENESS_REVS   2UL      // model revolutions of silence before the train stops
+/* 3, not 2: a single missed landmark puts the next one at exactly 2x the model period,
+ * and the historical miss rate is ~1.3%, so 2 revs trips on normal running. 3 revs still
+ * stops the train in ~150ms at 1200rpm while tolerating one clean miss. */
+#define EFI_LIVENESS_REVS   3UL      // model revolutions of silence before the train stops
 #define EFI_LIVENESS_MAX_US 500000UL // absolute ceiling on that timeout
 
 /* ---- cylinder ID jumpers (D10 = PB4, D11 = PB5) ----
@@ -335,6 +395,9 @@ volatile uint32_t phaseExt       = 0;   // MODEL: extended tick of the last mode
 volatile uint32_t phasePeriod    = 0;   // MODEL: rev period estimate (ticks)
 volatile uint32_t prevPeriod     = 0;   // acquisition-only: previous landmark period
 volatile uint8_t  nTwoStreak     = 0;   // consecutive n==2 landmarks (half-lock detector)
+volatile uint32_t lastLmExt      = 0;   // extended tick of the previous LANDMARK (any outcome)
+volatile uint32_t earlyPrev      = 0;   // previous landmark-to-landmark interval, EARLY streak
+volatile uint8_t  earlyStreak    = 0;   // consecutive agreeing EARLY intervals (speed-up detector)
 volatile bool     coldAcquire    = true;  // next lock follows a real stop -> cranking speed only
 volatile bool     synced         = false;
 volatile bool     coilCharging   = false;
@@ -365,6 +428,7 @@ uint32_t efiPulseHighMicros = 0;            // when it went HIGH, to time its wi
 #define DBG_SYNCCAND  8   // acquisition: landmark recorded, not yet agreeing
 #define DBG_HALFLOCK  9   // half-lock detected -> model period doubled
 #define DBG_IMPLAUS  10   // cold acquisition rejected: period implies > COLD_ACQ_MAX_RPM
+#define DBG_SPEEDUP  11   // sustained agreeing EARLY landmarks -> model period shortened
 volatile uint8_t  dbgSeq      = 0;
 volatile uint8_t  dbgEvent    = DBG_NONE;
 volatile uint32_t dbgVal      = 0;   // raw interval (SKIP) or delta-since-model (locked)
@@ -408,6 +472,12 @@ ISR(TIMER5_CAPT_vect){
     return;                        // burst edge -> discard
   }
 
+  // Landmark-to-landmark interval, tracked for EVERY landmark whatever its outcome. The
+  // SPEEDUP detector needs this rather than delta: while landmarks are being discarded as
+  // EARLY, phaseExt does not advance, so successive deltas grow and can never agree.
+  uint32_t lmInterval = capExt - lastLmExt;
+  lastLmExt = capExt;
+
   // --- ACQUISITION: lock the model with two agreeing landmark periods ---
   if (!synced){
     uint32_t period = capExt - phaseExt;     // phaseExt holds the last landmark tick here
@@ -445,9 +515,27 @@ ISR(TIMER5_CAPT_vect){
     return;
   }
   if (delta * REFRACTORY_DEN < phasePeriod * REFRACTORY_NUM){   // < 0.6*P: extra/early edge
+    // SPEEDUP detector (see EARLY_STREAK): under a hard acceleration every landmark lands
+    // here and gets thrown away, the model never updates, and the decoder eventually
+    // RELOCKs onto a sub-multiple. If consecutive landmark-to-landmark intervals AGREE,
+    // that is the new engine speed rather than an extra edge -- adopt it.
+    bool lmAgrees = earlyPrev &&
+                    (lmInterval * SYNC_AGREE_NUM > earlyPrev * SYNC_AGREE_DEN) &&
+                    (lmInterval * SYNC_AGREE_DEN < earlyPrev * SYNC_AGREE_NUM);
+    earlyStreak = lmAgrees ? (uint8_t)(earlyStreak + 1) : 1;
+    earlyPrev   = lmInterval;
+    if (earlyStreak >= EARLY_STREAK &&
+        lmInterval >= PERIOD_MIN_TICKS && lmInterval <= PERIOD_MAX_TICKS){
+      phasePeriod = lmInterval;
+      phaseExt    = capExt;        // re-anchor; next rev re-establishes phase
+      earlyStreak = 0; earlyPrev = 0; nTwoStreak = 0;
+      dbgEvent=DBG_SPEEDUP; dbgVal=lmInterval; dbgPeriod=phasePeriod; dbgRefBig=refBig; dbgSeq++;
+      return;                      // skip this rev's spark; the model just moved
+    }
     dbgEvent=DBG_EARLY; dbgVal=delta; dbgRefBig=refBig; dbgSeq++;
     return;                                    // ignore; already fired this rev
   }
+  earlyStreak = 0; earlyPrev = 0;               // a normally-timed landmark ends the streak
 
   // How many whole revs elapsed since the model landmark (>=1; handles a missed one).
   uint32_t n = (delta + (phasePeriod >> 1)) / phasePeriod;
@@ -615,6 +703,7 @@ void printDebug(){
     case DBG_SYNCCAND:  Serial.print(F("SYNCCAND ")); break;
     case DBG_HALFLOCK:  Serial.print(F("HALFLOCK ")); break;
     case DBG_IMPLAUS:   Serial.print(F("IMPLAUS  ")); break;
+    case DBG_SPEEDUP:   Serial.print(F("SPEEDUP  ")); break;
     default:            Serial.print(F("NONE     ")); break;
   }
   Serial.print(F(" val_us="));    Serial.print(val * US_PER_TICK);
@@ -711,7 +800,8 @@ void loop(){
     TIMSK5 &= ~(_BV(OCIE5A) | _BV(OCIE5B));
     // keep refBig warm across the stall; just drop the lock and acquisition state
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ coilCharging=false; synced=false; prevPeriod=0;
-                                       efiTrainRunning=false; coldAcquire=true; }
+                                       efiTrainRunning=false; coldAcquire=true;
+                                       earlyStreak=0; earlyPrev=0; }
     EFI_LOW();                       // don't strand the EFI pin HIGH mid-pulse
     efiPulseActive = false;
     if (!stallLatched && Serial.availableForWrite() >= (SERIAL_TX_BUFFER_SIZE - 1)){

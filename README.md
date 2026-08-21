@@ -2,7 +2,92 @@
 
 Standalone electronic ignition for a 3-cylinder two-stroke engine, built from three identical Arduino Mega 2560 boards — one per cylinder. Each board reads its own VR (pulse coil) sensor, cleans up the trigger signal internally, and fires a smart ignition coil at a fixed advance angle. No shared "cleaner" board and no cross-wiring between cylinders — every board is a complete, self-sufficient ignition channel.
 
-## Current status (2026-08-20, late) — **THE ENGINE STARTED AND IDLED.**
+## Current status (2026-08-21) — **RUNNING. 30-second runs, 405-3617 rpm, throttle response.**
+
+Stock CDI on spark, Speeduino on fuel, one MCU board on `efi_trigger` supplying the EFI
+trigger. Repeated 30-second runs, taking throttle, charging (battery 11.7 -> 13.0V), with
+**zero sync losses across an 8x speed range**.
+
+### 1. The EFI trigger was rebuilt from scratch as `efi_trigger/efi_trigger.ino`
+
+The ignition build kept locking itself out. Every guard in it exists to protect SPARK timing
+— and this board drives no coil. Speeduino's Basic Distributor decoder only COUNTS pulses, so
+absolute phase is irrelevant and the requirement collapses to: 3 pulses/rev, roughly the right
+rate, evenly enough spaced.
+
+Deleted: spark scheduling, dwell, advance curves, the max-advance clamp, the cold-acquisition
+guard, HALFLOCK, SPEEDUP, the strobe, cylinder ID. 8190 bytes -> 5274.
+
+**Three correctors replaced by one rule:** a landmark period is ACCEPTED if it agrees with the
+model; otherwise it becomes a CANDIDATE, and two consecutive agreeing candidates replace the
+model outright. That single rule covers cold acquisition, sub-multiple lock, hard acceleration
+and one-off glitches without naming any of them.
+
+**Kept, both earned the hard way:** the refBig floor (a noise burst could otherwise freeze it
+in an arithmetic dead zone and brick the channel until reset) and the liveness gate (the train
+free-runs, so without it Speeduino sees a phantom rpm and keeps injecting into a stopped
+engine).
+
+**Two fixes found on the running engine:**
+
+- **n-rounding.** At ~1800 rpm about a THIRD of landmarks are missed. Without n-rounding the
+  next landmark arrives at 2x the model period, disagrees, becomes a candidate, and two in a
+  row ADOPT double the period — halving rpm and therefore halving fuel. Accept a landmark that
+  is close to an integer number of model revolutions and divide back down.
+- **Liveness 3 -> 6 revolutions.** With a third of landmarks missed, 3 revs of silence is
+  routine, so the gate was stopping and restarting the train constantly. Free-running exists
+  precisely to ride through misses; the gate must not defeat it.
+
+Result on a 30-second run: `run=1` continuous, **`adopt=0` for the entire run** (locked once,
+never re-locked), rej=0, and the board's rpm matching Speeduino's independently.
+
+### 2. THE ~2.3x PW FACTOR: SOLVED. It was Injector Layout = Sequential.
+
+| | Sequential | **Semi-sequential** |
+|---|---|---|
+| PW | 22.5 ms | **10.32 ms** |
+| Peak duty | **133%** | **60%** |
+| Samples over 85% duty | **146 of 452** | **0 of 449** |
+| Peak rpm | 3383 | **3617** |
+
+```
+9.0 (ReqFuel) x 0.55 (VE) x 1.87 (Gammae) + 1.25 (open time) = 10.5 ms   predicted
+                                                               10.32 ms  measured
+```
+
+**Sequential times injection over the "full cycle" — a 4-stroke assumption. On a two-stroke
+the full cycle IS one crank revolution**, so it was delivering double. Semi-sequential matches
+the hardware exactly: outputs = number of cylinders (3, one injector each), timed over 1 crank
+revolution, valid for 4 cylinders or fewer, and it needs no cam reference (which a Basic
+Distributor crank trigger cannot provide).
+
+**The fuel math is now self-consistent and VE means volumetric efficiency.** Every VE value
+tried before this was compensating for an unknown 2.1x constant.
+
+Three hypotheses were wrong first, recorded so they are not re-derived: Required Fuel (reads
+9.0ms, correct), injector open time (1.0ms, correct), and Port vs Throttle Body injection type
+(changing it moved PW not at all).
+
+### 3. Mechanical: cleared
+
+Compression **even across all three cylinders, 100+**. The metallic clank was **not the
+engine**. Both were live suspicions given the prior hydrolock; both are closed.
+
+### Next
+
+- **The CLT sensor is still a fixed resistor**, so the ECU always reads 82F and `Gwarm` is
+  permanently stuck at **123%**. That is a hidden 23% enrichment in everything. Connect the
+  real sensor, or flatten the warmup table to 100, BEFORE building a real VE table — otherwise
+  it gets baked in and the tune goes lean at temperature the day the sensor is fitted.
+- Build a real VE table now that the numbers mean something.
+- Cooling: still no water on the bench. Runs stay short.
+
+Logs: `bench_logs/efitrig2_COM13_2026-08-21_10.28.15.txt` and the Speeduino datalogs
+`2026-08-21_11.18.03.msl` (Sequential) / `2026-08-21_11.24.10.msl` (Semi-sequential).
+
+---
+
+## Previous status (2026-08-20, late) — **THE ENGINE STARTED AND IDLED.**
 
 Stock CDI on spark, Speeduino on fuel, one MCU board supplying the EFI trigger. It caught,
 revved to ~1958 rpm, and settled to a **steady 1076 rpm idle held within +/-1 rpm** for over

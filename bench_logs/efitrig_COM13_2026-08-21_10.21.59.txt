@@ -1,0 +1,63 @@
+# port=COM13 baud=115200 started=2026-08-21T10:21:59.402989
+    1.141 efi_trigger -- FUEL ONLY, drives no coil
+    1.141 pulses/rev=3  D9 -> Speeduino pin 19, RISING, 10k pulldown
+   65.906 t=64754 rpm=0 rev_us=0 refBig_us=32 run=0 edges=3 lm=1 acc=0 adopt=0 rej=1
+  190.656 t=189514 rpm=0 rev_us=0 refBig_us=32 run=0 edges=1 lm=1 acc=0 adopt=0 rej=1
+  190.906 STOP  no landmark for us=23344
+  190.906 t=189764 rpm=0 rev_us=0 refBig_us=4896 run=0 edges=52 lm=28 acc=1 adopt=1 rej=17
+  191.406 t=190014 rpm=1693 rev_us=35424 refBig_us=6576 run=1 edges=76 lm=7 acc=0 adopt=1 rej=0
+  191.422 STOP  no landmark for us=106280
+  191.422 STOP  no landmark for us=25592
+  191.422 t=190264 rpm=0 rev_us=0 refBig_us=9472 run=0 edges=40 lm=8 acc=1 adopt=1 rej=0
+  191.906 t=190514 rpm=0 rev_us=0 refBig_us=17776 run=0 edges=37 lm=7 acc=0 adopt=0 rej=0
+  191.906 STOP  no landmark for us=57468
+  191.906 STOP  no landmark for us=60436
+  191.906 t=190764 rpm=0 rev_us=0 refBig_us=14976 run=0 edges=67 lm=7 acc=0 adopt=2 rej=0
+  192.156 t=191014 rpm=2771 rev_us=21648 refBig_us=22160 run=1 edges=33 lm=9 acc=4 adopt=1 rej=0
+  192.406 t=191264 rpm=2969 rev_us=20208 refBig_us=20192 run=1 edges=32 lm=10 acc=8 adopt=0 rej=0
+  192.906 t=191514 rpm=2997 rev_us=20016 refBig_us=20352 run=1 edges=20 lm=11 acc=10 adopt=0 rej=0
+  192.906 STOP  no landmark for us=60536
+  192.906 t=191764 rpm=2938 rev_us=20416 refBig_us=20864 run=1 edges=34 lm=9 acc=4 adopt=1 rej=0
+  192.906 STOP  no landmark for us=61936
+  193.156 t=192014 rpm=2354 rev_us=25488 refBig_us=26160 run=1 edges=36 lm=8 acc=2 adopt=1 rej=0
+  193.656 STOP  no landmark for us=83440
+  193.656 t=192264 rpm=0 rev_us=0 refBig_us=33152 run=0 edges=11 lm=7 acc=5 adopt=0 rej=0
+  193.656 STOP  no landmark for us=92364
+  193.656 t=192514 rpm=1673 rev_us=35856 refBig_us=38080 run=1 edges=11 lm=6 acc=2 adopt=2 rej=0
+  193.906 t=192764 rpm=1744 rev_us=34384 refBig_us=36304 run=1 edges=8 lm=8 acc=8 adopt=0 rej=0
+  194.156 t=193014 rpm=1758 rev_us=34112 refBig_us=35248 run=1 edges=7 lm=7 acc=7 adopt=0 rej=0
+  194.891 t=193264 rpm=1799 rev_us=33344 refBig_us=34176 run=1 edges=9 lm=8 acc=8 adopt=0 rej=0
+  194.891 STOP  no landmark for us=100036
+  194.891 t=193514 rpm=1741 rev_us=34448 refBig_us=32640 run=1 edges=18 lm=5 acc=1 adopt=1 rej=0
+  194.891 STOP  no landmark for us=103356
+  194.891 t=193764 rpm=1512 rev_us=39680 refBig_us=42560 run=1 edges=9 lm=6 acc=3 adopt=1 rej=0
+  195.141 t=194014 rpm=1616 rev_us=37120 refBig_us=40672 run=1 edges=6 lm=6 acc=6 adopt=0 rej=0
+  195.391 STOP  no landmark for us=104932
+  195.391 t=194264 rpm=0 rev_us=0 refBig_us=31168 run=0 edges=22 lm=5 acc=3 adopt=0 rej=0
+  195.656 STOP  no landmark for us=111460
+  195.656 t=194514 rpm=0 rev_us=0 refBig_us=37264 run=0 edges=16 lm=4 acc=0 adopt=1 rej=0
+  196.406 t=194764 rpm=0 rev_us=0 refBig_us=42496 run=0 edges=15 lm=3 acc=0 adopt=0 rej=0
+  196.406 STOP  no landmark for us=106664
+  196.406 t=195014 rpm=1799 rev_us=33344 refBig_us=33664 run=1 edges=15 lm=5 acc=0 adopt=2 rej=0
+  196.406 STOP  no landmark for us=99948
+  196.406 t=195264 rpm=1789 rev_us=33520 refBig_us=36656 run=1 edges=11 lm=7 acc=4 adopt=1 rej=0
+  196.656 t=195514 rpm=1840 rev_us=32608 refBig_us=33072 run=1 edges=10 lm=6 acc=5 adopt=0 rej=0
+  197.406 t=195764 rpm=1818 rev_us=32992 refBig_us=34528 run=1 edges=15 lm=7 acc=6 adopt=0 rej=0
+  197.406 STOP  no landmark for us=98608
+  197.406 t=196014 rpm=0 rev_us=0 refBig_us=35952 run=0 edges=14 lm=5 acc=2 adopt=0 rej=0
+  197.406 STOP  no landmark for us=112568
+  197.406 t=196264 rpm=0 rev_us=0 refBig_us=46336 run=0 edges=9 lm=5 acc=2 adopt=1 rej=0
+  197.656 t=196514 rpm=1369 rev_us=43824 refBig_us=50496 run=1 edges=6 lm=6 acc=5 adopt=1 rej=0
+  197.906 t=196764 rpm=1220 rev_us=49168 refBig_us=56432 run=1 edges=5 lm=5 acc=5 adopt=0 rej=0
+  198.406 t=197014 rpm=1198 rev_us=50080 refBig_us=54272 run=1 edges=5 lm=5 acc=5 adopt=0 rej=0
+  198.406 STOP  no landmark for us=158308
+  198.406 t=197264 rpm=0 rev_us=0 refBig_us=73696 run=0 edges=4 lm=2 acc=1 adopt=0 rej=0
+  198.656 t=197514 rpm=0 rev_us=0 refBig_us=70784 run=0 edges=4 lm=3 acc=0 adopt=0 rej=0
+  198.906 t=197764 rpm=0 rev_us=0 refBig_us=84400 run=0 edges=4 lm=2 acc=0 adopt=0 rej=0
+  199.156 t=198014 rpm=0 rev_us=0 refBig_us=100656 run=0 edges=4 lm=2 acc=0 adopt=0 rej=0
+  199.391 t=198264 rpm=0 rev_us=0 refBig_us=91632 run=0 edges=6 lm=2 acc=0 adopt=0 rej=0
+  199.656 t=198514 rpm=0 rev_us=0 refBig_us=105888 run=0 edges=6 lm=1 acc=0 adopt=0 rej=0
+  199.906 t=198764 rpm=363 rev_us=164928 refBig_us=102624 run=1 edges=2 lm=2 acc=0 adopt=1 rej=0
+  200.203 t=199014 rpm=620 rev_us=96640 refBig_us=101024 run=1 edges=1 lm=1 acc=0 adopt=1 rej=0
+  200.203 STOP  no landmark for us=289928
+  200.656 t=199514 rpm=0 rev_us=0 refBig_us=101024 run=0 edges=1 lm=1 acc=0 adopt=0 rej=1
