@@ -170,12 +170,30 @@ cranking. The two runs were therefore not at comparable conditions; do not over-
 ### Conclusion
 
 Scatter of 20-48 deg that **reshuffles unpredictably between channels and between runs** is the
-same signature as the earlier "every test is a little different" problem. It points at
-connection instability - **the breadboard** - not the decoder. This is exactly the limitation
-called out before the carrier board was designed.
+same signature as the earlier "every test is a little different" problem, and the first reading
+was that it pointed at connection instability - the breadboard.
 
-**Next step is the carrier board** (`hardware/carrier_board.md`), or at minimum soldering the
-pulser and ground connections. A start attempt is not safe until the scatter comes down.
+**That conclusion is now in doubt, and should not be acted on yet.** Later the same evening a
+single channel ran at **rpm sd 1.0** *on the same breadboard*, with the stock CDI actively
+sparking beside it. Three things differed in that run, so none can be isolated from tonight's
+data alone:
+
+1. **Damping resistor 470R -> 10k.** Against the coil's ~310R source this takes the signal
+   reaching the conditioner from **60% to 97%** - at cranking, 1.9V versus 3.1V. Comparator edge
+   timing is very amplitude-sensitive at low slew rate, which is precisely the low-rpm case
+   where every trigger problem in this project has appeared. The README has long listed 470R as
+   "a prime suspect if a channel proves marginal"; that suspicion now has evidence behind it.
+2. **The refBig floor fix** (see below).
+3. **One board instead of three**, driving no coil.
+
+The breadboard was constant across both good and bad runs, so it cannot be the sole
+explanation.
+
+**Cheap experiment that settles it:** fit **10k on all three channels**, flash all three with
+the current firmware, and re-run the three-board test **on the same breadboard**. If scatter
+collapses from 20-48 deg toward the validated 12-14 deg, the breadboard was never the blocker
+and the carrier board (`hardware/carrier_board.md`) becomes a build-at-leisure job rather than
+a prerequisite. Do this before concluding anything about the carrier board.
 
 Logs: `bench_logs/drycrank_COM*_2026-08-20_*.txt`, `postfix_COM*_2026-08-20_*.txt`,
 `plugsin_nospark_COM*_2026-08-20_*.txt` (the last file contains two bursts - plugs in, then
