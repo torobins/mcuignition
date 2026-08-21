@@ -1,0 +1,606 @@
+# port=COM13 baud=115200 started=2026-08-20T20:21:58.498118
+    1.156 one_cyl_ignition LANDMARK-PLL experiment build  CYL=1
+    1.156 timing: TRIGGER_ANGLE_BTDC=330 run_adv=15 crank_adv=5 below_rpm=500
+    4.156 WATCHDOG: STALL gap_us=3000012
+   51.844 cyl=1 seq=1 ev=SKIP      val_us=51026704 refBig_us=0
+   51.844 cyl=1 seq=3 missed=1 ev=REJECTED  val_us=51027632 refBig_us=32
+   51.844 cyl=1 seq=4 ev=IMPLAUS   val_us=26320 refBig_us=32
+   51.844 cyl=1 seq=7 missed=2 ev=REJECTED  val_us=976 refBig_us=32
+   51.844 cyl=1 seq=11 missed=3 ev=REJECTED  val_us=2320 refBig_us=32
+   51.860 cyl=1 seq=12 ev=IMPLAUS   val_us=25968 refBig_us=32
+   51.860 cyl=1 seq=13 ev=IMPLAUS   val_us=8816 refBig_us=32
+   51.860 cyl=1 seq=14 ev=REJECTED  val_us=5824 refBig_us=32
+   51.860 cyl=1 seq=16 missed=1 ev=REJECTED  val_us=1024 refBig_us=32
+   51.860 cyl=1 seq=17 ev=REJECTED  val_us=2512 refBig_us=32
+   51.860 cyl=1 seq=18 ev=IMPLAUS   val_us=8736 refBig_us=32
+   51.860 cyl=1 seq=19 ev=IMPLAUS   val_us=17056 refBig_us=32
+   51.860 cyl=1 seq=21 missed=1 ev=REJECTED  val_us=32 refBig_us=32
+   51.860 cyl=1 seq=24 missed=2 ev=REJECTED  val_us=736 refBig_us=32
+   51.860 cyl=1 seq=25 ev=REJECTED  val_us=2128 refBig_us=32
+   51.860 cyl=1 seq=29 missed=3 ev=REJECTED  val_us=144 refBig_us=32
+   51.860 cyl=1 seq=31 missed=1 ev=REJECTED  val_us=3936 refBig_us=32
+   51.860 cyl=1 seq=34 missed=2 ev=REJECTED  val_us=2688 refBig_us=32
+   51.860 cyl=1 seq=37 missed=2 ev=REJECTED  val_us=2512 refBig_us=32
+   51.860 cyl=1 seq=39 missed=1 ev=REJECTED  val_us=608 refBig_us=32
+   51.860 cyl=1 seq=41 missed=1 ev=REJECTED  val_us=624 refBig_us=32
+   51.860 cyl=1 seq=42 ev=IMPLAUS   val_us=7040 refBig_us=32
+   51.860 cyl=1 seq=43 ev=IMPLAUS   val_us=11840 refBig_us=32
+   51.860 cyl=1 seq=44 ev=REJECTED  val_us=2512 refBig_us=32
+   51.860 cyl=1 seq=45 ev=IMPLAUS   val_us=12816 refBig_us=32
+   51.860 cyl=1 seq=46 ev=IMPLAUS   val_us=11120 refBig_us=32
+   51.860 cyl=1 seq=48 missed=1 ev=SKIP      val_us=16 refBig_us=32
+   51.860 cyl=1 seq=51 missed=2 ev=REJECTED  val_us=320 refBig_us=32
+   51.860 cyl=1 seq=52 ev=IMPLAUS   val_us=8208 refBig_us=32
+   51.860 cyl=1 seq=53 ev=REJECTED  val_us=5696 refBig_us=32
+   51.860 cyl=1 seq=54 ev=IMPLAUS   val_us=10368 refBig_us=32
+   51.860 cyl=1 seq=55 ev=IMPLAUS   val_us=8112 refBig_us=32
+   51.860 cyl=1 seq=56 ev=REJECTED  val_us=5536 refBig_us=32
+   51.860 cyl=1 seq=57 ev=IMPLAUS   val_us=12624 refBig_us=32
+   51.860 cyl=1 seq=60 missed=2 ev=REJECTED  val_us=480 refBig_us=32
+   51.860 cyl=1 seq=64 missed=3 ev=REJECTED  val_us=1008 refBig_us=32
+   51.860 cyl=1 seq=65 ev=REJECTED  val_us=5440 refBig_us=32
+   51.860 cyl=1 seq=66 ev=REJECTED  val_us=5456 refBig_us=32
+   51.860 cyl=1 seq=67 ev=IMPLAUS   val_us=7920 refBig_us=32
+   51.860 cyl=1 seq=68 ev=IMPLAUS   val_us=10608 refBig_us=32
+   51.860 cyl=1 seq=69 ev=IMPLAUS   val_us=88096 refBig_us=32
+   51.860 cyl=1 seq=70 ev=IMPLAUS   val_us=8064 refBig_us=32
+   51.860 cyl=1 seq=71 ev=IMPLAUS   val_us=13584 refBig_us=32
+   51.860 cyl=1 seq=72 ev=IMPLAUS   val_us=7120 refBig_us=32
+   51.860 cyl=1 seq=74 missed=1 ev=REJECTED  val_us=2336 refBig_us=32
+   51.860 cyl=1 seq=75 ev=IMPLAUS   val_us=10688 refBig_us=32
+   51.860 cyl=1 seq=76 ev=IMPLAUS   val_us=6288 refBig_us=32
+   51.860 cyl=1 seq=77 ev=REJECTED  val_us=4864 refBig_us=32
+   51.860 cyl=1 seq=78 ev=IMPLAUS   val_us=7280 refBig_us=32
+   51.860 cyl=1 seq=79 ev=IMPLAUS   val_us=85296 refBig_us=32
+   51.860 cyl=1 seq=80 ev=IMPLAUS   val_us=6560 refBig_us=32
+   51.860 cyl=1 seq=82 missed=1 ev=REJECTED  val_us=2640 refBig_us=32
+   51.860 cyl=1 seq=83 ev=REJECTED  val_us=2656 refBig_us=32
+   51.860 cyl=1 seq=84 ev=IMPLAUS   val_us=8720 refBig_us=32
+   51.860 cyl=1 seq=85 ev=IMPLAUS   val_us=7472 refBig_us=32
+   51.860 cyl=1 seq=86 ev=REJECTED  val_us=2192 refBig_us=32
+   51.860 cyl=1 seq=87 ev=IMPLAUS   val_us=17296 refBig_us=32
+   51.860 cyl=1 seq=88 ev=REJECTED  val_us=4304 refBig_us=32
+   51.860 cyl=1 seq=89 ev=IMPLAUS   val_us=6592 refBig_us=32
+   51.860 cyl=1 seq=90 ev=IMPLAUS   val_us=87136 refBig_us=32
+   51.860 cyl=1 seq=91 ev=REJECTED  val_us=2896 refBig_us=32
+   51.860 cyl=1 seq=92 ev=IMPLAUS   val_us=6192 refBig_us=32
+   51.860 cyl=1 seq=93 ev=IMPLAUS   val_us=12832 refBig_us=32
+   51.860 cyl=1 seq=94 ev=IMPLAUS   val_us=7120 refBig_us=32
+   51.860 cyl=1 seq=95 ev=REJECTED  val_us=1024 refBig_us=32
+   51.860 cyl=1 seq=96 ev=IMPLAUS   val_us=13136 refBig_us=32
+   51.860 cyl=1 seq=97 ev=REJECTED  val_us=5840 refBig_us=32
+   51.860 cyl=1 seq=98 ev=IMPLAUS   val_us=12080 refBig_us=32
+   51.860 cyl=1 seq=99 ev=IMPLAUS   val_us=85632 refBig_us=32
+   51.860 cyl=1 seq=100 ev=IMPLAUS   val_us=7760 refBig_us=32
+   51.860 cyl=1 seq=101 ev=IMPLAUS   val_us=7024 refBig_us=32
+   51.860 cyl=1 seq=102 ev=IMPLAUS   val_us=6928 refBig_us=32
+   51.860 cyl=1 seq=103 ev=IMPLAUS   val_us=6912 refBig_us=32
+   51.860 cyl=1 seq=105 missed=1 ev=REJECTED  val_us=800 refBig_us=32
+   51.860 cyl=1 seq=108 missed=2 ev=REJECTED  val_us=2896 refBig_us=32
+   53.047 cyl=1 seq=109 ev=IMPLAUS   val_us=6128 refBig_us=32
+   53.047 cyl=1 seq=110 ev=REJECTED  val_us=4736 refBig_us=32
+   53.047 cyl=1 seq=111 ev=IMPLAUS   val_us=12496 refBig_us=32
+   53.047 cyl=1 seq=112 ev=IMPLAUS   val_us=84928 refBig_us=32
+   53.047 cyl=1 seq=113 ev=IMPLAUS   val_us=7920 refBig_us=32
+   53.047 cyl=1 seq=114 ev=IMPLAUS   val_us=14144 refBig_us=32
+   53.047 cyl=1 seq=115 ev=IMPLAUS   val_us=9216 refBig_us=32
+   53.047 cyl=1 seq=116 ev=IMPLAUS   val_us=17776 refBig_us=32
+   53.047 cyl=1 seq=117 ev=IMPLAUS   val_us=11936 refBig_us=32
+   53.047 cyl=1 seq=118 ev=IMPLAUS   val_us=86192 refBig_us=32
+   53.047 cyl=1 seq=119 ev=REJECTED  val_us=3328 refBig_us=32
+   53.047 cyl=1 seq=120 ev=IMPLAUS   val_us=6176 refBig_us=32
+   53.047 cyl=1 seq=121 ev=REJECTED  val_us=3440 refBig_us=32
+   53.047 cyl=1 seq=122 ev=IMPLAUS   val_us=8864 refBig_us=32
+   53.047 cyl=1 seq=123 ev=IMPLAUS   val_us=8688 refBig_us=32
+   53.047 cyl=1 seq=124 ev=IMPLAUS   val_us=10368 refBig_us=32
+   53.047 cyl=1 seq=125 ev=REJECTED  val_us=2544 refBig_us=32
+   53.047 cyl=1 seq=126 ev=REJECTED  val_us=5728 refBig_us=32
+   53.047 cyl=1 seq=127 ev=REJECTED  val_us=3712 refBig_us=32
+   53.047 cyl=1 seq=128 ev=IMPLAUS   val_us=7520 refBig_us=32
+   53.047 cyl=1 seq=129 ev=IMPLAUS   val_us=87248 refBig_us=32
+   53.047 cyl=1 seq=130 ev=REJECTED  val_us=3504 refBig_us=32
+   53.047 cyl=1 seq=131 ev=REJECTED  val_us=4656 refBig_us=32
+   53.047 cyl=1 seq=132 ev=IMPLAUS   val_us=13600 refBig_us=32
+   53.047 cyl=1 seq=133 ev=IMPLAUS   val_us=9104 refBig_us=32
+   53.047 cyl=1 seq=134 ev=IMPLAUS   val_us=12016 refBig_us=32
+   53.047 cyl=1 seq=135 ev=REJECTED  val_us=5968 refBig_us=32
+   53.047 cyl=1 seq=136 ev=IMPLAUS   val_us=12864 refBig_us=32
+   53.047 cyl=1 seq=137 ev=IMPLAUS   val_us=84848 refBig_us=32
+   53.047 cyl=1 seq=138 ev=REJECTED  val_us=2400 refBig_us=32
+   53.047 cyl=1 seq=139 ev=REJECTED  val_us=4064 refBig_us=32
+   53.047 cyl=1 seq=141 missed=1 ev=REJECTED  val_us=3296 refBig_us=32
+   53.047 cyl=1 seq=142 ev=IMPLAUS   val_us=8688 refBig_us=32
+   53.047 cyl=1 seq=143 ev=IMPLAUS   val_us=8720 refBig_us=32
+   53.047 cyl=1 seq=144 ev=IMPLAUS   val_us=12544 refBig_us=32
+   53.047 cyl=1 seq=145 ev=REJECTED  val_us=5584 refBig_us=32
+   53.047 cyl=1 seq=146 ev=IMPLAUS   val_us=10640 refBig_us=32
+   53.047 cyl=1 seq=147 ev=IMPLAUS   val_us=87136 refBig_us=32
+   53.047 cyl=1 seq=148 ev=REJECTED  val_us=3664 refBig_us=32
+   53.047 cyl=1 seq=150 missed=1 ev=REJECTED  val_us=176 refBig_us=32
+   53.047 cyl=1 seq=152 missed=1 ev=REJECTED  val_us=3744 refBig_us=32
+   53.047 cyl=1 seq=153 ev=REJECTED  val_us=4288 refBig_us=32
+   53.047 cyl=1 seq=154 ev=REJECTED  val_us=4544 refBig_us=32
+   53.047 cyl=1 seq=155 ev=IMPLAUS   val_us=7536 refBig_us=32
+   53.047 cyl=1 seq=158 missed=2 ev=REJECTED  val_us=832 refBig_us=32
+   53.047 cyl=1 seq=161 missed=2 ev=REJECTED  val_us=2224 refBig_us=32
+   53.047 cyl=1 seq=162 ev=REJECTED  val_us=4896 refBig_us=32
+   53.047 cyl=1 seq=163 ev=IMPLAUS   val_us=6240 refBig_us=32
+   53.047 cyl=1 seq=164 ev=REJECTED  val_us=3808 refBig_us=32
+   53.047 cyl=1 seq=165 ev=IMPLAUS   val_us=8752 refBig_us=32
+   53.047 cyl=1 seq=166 ev=IMPLAUS   val_us=85456 refBig_us=32
+   53.047 cyl=1 seq=167 ev=IMPLAUS   val_us=8800 refBig_us=32
+   53.047 cyl=1 seq=168 ev=REJECTED  val_us=4048 refBig_us=32
+   53.047 cyl=1 seq=169 ev=IMPLAUS   val_us=9120 refBig_us=32
+   53.047 cyl=1 seq=170 ev=IMPLAUS   val_us=8848 refBig_us=32
+   53.047 cyl=1 seq=171 ev=IMPLAUS   val_us=17936 refBig_us=32
+   53.047 cyl=1 seq=172 ev=REJECTED  val_us=3440 refBig_us=32
+   53.047 cyl=1 seq=173 ev=IMPLAUS   val_us=7088 refBig_us=32
+   53.047 cyl=1 seq=174 ev=IMPLAUS   val_us=87536 refBig_us=32
+   53.047 cyl=1 seq=175 ev=REJECTED  val_us=2768 refBig_us=32
+   53.047 cyl=1 seq=176 ev=REJECTED  val_us=4672 refBig_us=32
+   53.047 cyl=1 seq=177 ev=IMPLAUS   val_us=14192 refBig_us=32
+   53.047 cyl=1 seq=178 ev=IMPLAUS   val_us=8544 refBig_us=32
+   53.047 cyl=1 seq=179 ev=IMPLAUS   val_us=18544 refBig_us=32
+   53.047 cyl=1 seq=180 ev=REJECTED  val_us=3680 refBig_us=32
+   53.047 cyl=1 seq=181 ev=IMPLAUS   val_us=8160 refBig_us=32
+   53.047 cyl=1 seq=182 ev=IMPLAUS   val_us=86544 refBig_us=32
+   53.047 cyl=1 seq=185 missed=2 ev=REJECTED  val_us=1088 refBig_us=32
+   53.047 cyl=1 seq=186 ev=REJECTED  val_us=5072 refBig_us=32
+   53.047 cyl=1 seq=188 missed=1 ev=REJECTED  val_us=176 refBig_us=32
+   53.047 cyl=1 seq=189 ev=REJECTED  val_us=3888 refBig_us=32
+   53.047 cyl=1 seq=190 ev=REJECTED  val_us=4816 refBig_us=32
+   53.047 cyl=1 seq=191 ev=IMPLAUS   val_us=8160 refBig_us=32
+   53.047 cyl=1 seq=192 ev=IMPLAUS   val_us=13296 refBig_us=32
+   53.047 cyl=1 seq=193 ev=REJECTED  val_us=5504 refBig_us=32
+   54.453 cyl=1 seq=194 ev=IMPLAUS   val_us=10672 refBig_us=32
+   54.453 cyl=1 seq=195 ev=IMPLAUS   val_us=87856 refBig_us=32
+   54.453 cyl=1 seq=196 ev=REJECTED  val_us=4544 refBig_us=32
+   54.453 cyl=1 seq=197 ev=REJECTED  val_us=3936 refBig_us=32
+   54.453 cyl=1 seq=198 ev=IMPLAUS   val_us=13248 refBig_us=32
+   54.453 cyl=1 seq=199 ev=IMPLAUS   val_us=9136 refBig_us=32
+   54.453 cyl=1 seq=200 ev=IMPLAUS   val_us=18048 refBig_us=32
+   54.453 cyl=1 seq=201 ev=IMPLAUS   val_us=11920 refBig_us=32
+   54.453 cyl=1 seq=202 ev=IMPLAUS   val_us=86096 refBig_us=32
+   54.453 cyl=1 seq=203 ev=REJECTED  val_us=2544 refBig_us=32
+   54.453 cyl=1 seq=204 ev=IMPLAUS   val_us=7040 refBig_us=32
+   54.453 cyl=1 seq=205 ev=REJECTED  val_us=3824 refBig_us=32
+   54.453 cyl=1 seq=206 ev=IMPLAUS   val_us=8384 refBig_us=32
+   54.453 cyl=1 seq=207 ev=IMPLAUS   val_us=8112 refBig_us=32
+   54.453 cyl=1 seq=208 ev=IMPLAUS   val_us=18496 refBig_us=32
+   54.453 cyl=1 seq=209 ev=REJECTED  val_us=3312 refBig_us=32
+   54.453 cyl=1 seq=210 ev=IMPLAUS   val_us=7424 refBig_us=32
+   54.453 cyl=1 seq=211 ev=IMPLAUS   val_us=87360 refBig_us=32
+   54.453 cyl=1 seq=212 ev=REJECTED  val_us=3264 refBig_us=32
+   54.453 cyl=1 seq=213 ev=REJECTED  val_us=5216 refBig_us=32
+   54.453 cyl=1 seq=214 ev=IMPLAUS   val_us=7008 refBig_us=32
+   54.453 cyl=1 seq=215 ev=IMPLAUS   val_us=6400 refBig_us=32
+   54.453 cyl=1 seq=216 ev=IMPLAUS   val_us=8576 refBig_us=32
+   54.453 cyl=1 seq=217 ev=IMPLAUS   val_us=18336 refBig_us=32
+   54.453 cyl=1 seq=218 ev=REJECTED  val_us=4400 refBig_us=32
+   54.453 cyl=1 seq=219 ev=IMPLAUS   val_us=7344 refBig_us=32
+   54.453 cyl=1 seq=220 ev=IMPLAUS   val_us=86480 refBig_us=32
+   54.453 cyl=1 seq=221 ev=IMPLAUS   val_us=7536 refBig_us=32
+   54.453 cyl=1 seq=222 ev=REJECTED  val_us=3616 refBig_us=32
+   54.453 cyl=1 seq=223 ev=IMPLAUS   val_us=10496 refBig_us=32
+   54.453 cyl=1 seq=224 ev=IMPLAUS   val_us=7008 refBig_us=32
+   54.453 cyl=1 seq=225 ev=REJECTED  val_us=1888 refBig_us=32
+   54.453 cyl=1 seq=226 ev=IMPLAUS   val_us=12368 refBig_us=32
+   54.453 cyl=1 seq=227 ev=REJECTED  val_us=5056 refBig_us=32
+   54.453 cyl=1 seq=228 ev=REJECTED  val_us=3808 refBig_us=32
+   54.453 cyl=1 seq=229 ev=IMPLAUS   val_us=11792 refBig_us=32
+   54.453 cyl=1 seq=230 ev=IMPLAUS   val_us=87664 refBig_us=32
+   54.453 cyl=1 seq=232 missed=1 ev=REJECTED  val_us=1952 refBig_us=32
+   54.453 cyl=1 seq=233 ev=REJECTED  val_us=3936 refBig_us=32
+   54.453 cyl=1 seq=234 ev=IMPLAUS   val_us=8912 refBig_us=32
+   54.453 cyl=1 seq=235 ev=IMPLAUS   val_us=9984 refBig_us=32
+   54.453 cyl=1 seq=236 ev=IMPLAUS   val_us=16848 refBig_us=32
+   54.453 cyl=1 seq=237 ev=REJECTED  val_us=3456 refBig_us=32
+   54.453 cyl=1 seq=238 ev=IMPLAUS   val_us=6672 refBig_us=32
+   54.453 cyl=1 seq=239 ev=IMPLAUS   val_us=87920 refBig_us=32
+   54.453 cyl=1 seq=240 ev=IMPLAUS   val_us=8832 refBig_us=32
+   54.453 cyl=1 seq=241 ev=IMPLAUS   val_us=13184 refBig_us=32
+   54.453 cyl=1 seq=242 ev=IMPLAUS   val_us=8064 refBig_us=32
+   54.453 cyl=1 seq=243 ev=IMPLAUS   val_us=12688 refBig_us=32
+   54.453 cyl=1 seq=244 ev=IMPLAUS   val_us=6160 refBig_us=32
+   54.453 cyl=1 seq=245 ev=REJECTED  val_us=2336 refBig_us=32
+   54.453 cyl=1 seq=246 ev=IMPLAUS   val_us=9088 refBig_us=32
+   54.453 cyl=1 seq=247 ev=IMPLAUS   val_us=87136 refBig_us=32
+   54.453 cyl=1 seq=248 ev=IMPLAUS   val_us=13552 refBig_us=32
+   54.453 cyl=1 seq=249 ev=IMPLAUS   val_us=8496 refBig_us=32
+   54.453 cyl=1 seq=250 ev=IMPLAUS   val_us=7840 refBig_us=32
+   54.453 cyl=1 seq=251 ev=IMPLAUS   val_us=12896 refBig_us=32
+   54.453 cyl=1 seq=252 ev=IMPLAUS   val_us=6080 refBig_us=32
+   54.453 cyl=1 seq=253 ev=IMPLAUS   val_us=12496 refBig_us=32
+   54.453 cyl=1 seq=254 ev=IMPLAUS   val_us=85536 refBig_us=32
+   54.453 cyl=1 seq=255 ev=REJECTED  val_us=2384 refBig_us=32
+   54.453 cyl=1 seq=0 ev=IMPLAUS   val_us=7184 refBig_us=32
+   54.453 cyl=1 seq=1 ev=IMPLAUS   val_us=12176 refBig_us=32
+   54.453 cyl=1 seq=2 ev=IMPLAUS   val_us=9520 refBig_us=32
+   54.453 cyl=1 seq=3 ev=IMPLAUS   val_us=12080 refBig_us=32
+   54.453 cyl=1 seq=4 ev=REJECTED  val_us=5168 refBig_us=32
+   54.453 cyl=1 seq=5 ev=REJECTED  val_us=3104 refBig_us=32
+   54.453 cyl=1 seq=6 ev=IMPLAUS   val_us=7056 refBig_us=32
+   54.453 cyl=1 seq=7 ev=IMPLAUS   val_us=88080 refBig_us=32
+   54.453 cyl=1 seq=8 ev=IMPLAUS   val_us=8256 refBig_us=32
+   54.453 cyl=1 seq=9 ev=IMPLAUS   val_us=13728 refBig_us=32
+   54.453 cyl=1 seq=10 ev=IMPLAUS   val_us=8464 refBig_us=32
+   54.453 cyl=1 seq=11 ev=IMPLAUS   val_us=12560 refBig_us=32
+   54.453 cyl=1 seq=12 ev=IMPLAUS   val_us=6096 refBig_us=32
+   54.453 cyl=1 seq=13 ev=REJECTED  val_us=2720 refBig_us=32
+   54.453 cyl=1 seq=14 ev=IMPLAUS   val_us=8080 refBig_us=32
+   54.453 cyl=1 seq=15 ev=IMPLAUS   val_us=88224 refBig_us=32
+   55.953 cyl=1 seq=16 ev=IMPLAUS   val_us=6944 refBig_us=32
+   55.953 cyl=1 seq=17 ev=IMPLAUS   val_us=15216 refBig_us=32
+   55.953 cyl=1 seq=18 ev=IMPLAUS   val_us=6320 refBig_us=32
+   55.953 cyl=1 seq=19 ev=REJECTED  val_us=1904 refBig_us=32
+   55.953 cyl=1 seq=20 ev=IMPLAUS   val_us=19040 refBig_us=32
+   55.953 cyl=1 seq=21 ev=REJECTED  val_us=3648 refBig_us=32
+   55.953 cyl=1 seq=22 ev=IMPLAUS   val_us=10672 refBig_us=32
+   55.953 cyl=1 seq=23 ev=IMPLAUS   val_us=84768 refBig_us=32
+   55.953 cyl=1 seq=24 ev=IMPLAUS   val_us=8208 refBig_us=32
+   55.953 cyl=1 seq=25 ev=REJECTED  val_us=3808 refBig_us=32
+   55.953 cyl=1 seq=26 ev=IMPLAUS   val_us=10032 refBig_us=32
+   55.953 cyl=1 seq=27 ev=IMPLAUS   val_us=8496 refBig_us=32
+   55.953 cyl=1 seq=28 ev=IMPLAUS   val_us=12112 refBig_us=32
+   55.953 cyl=1 seq=29 ev=IMPLAUS   val_us=6448 refBig_us=32
+   55.953 cyl=1 seq=30 ev=IMPLAUS   val_us=11696 refBig_us=32
+   55.953 cyl=1 seq=31 ev=IMPLAUS   val_us=86016 refBig_us=32
+   55.953 cyl=1 seq=32 ev=REJECTED  val_us=3328 refBig_us=32
+   55.953 cyl=1 seq=33 ev=REJECTED  val_us=5584 refBig_us=32
+   55.953 cyl=1 seq=34 ev=REJECTED  val_us=3856 refBig_us=32
+   55.953 cyl=1 seq=35 ev=REJECTED  val_us=4112 refBig_us=32
+   55.953 cyl=1 seq=36 ev=REJECTED  val_us=4832 refBig_us=32
+   55.953 cyl=1 seq=37 ev=IMPLAUS   val_us=9136 refBig_us=32
+   55.953 cyl=1 seq=38 ev=REJECTED  val_us=3376 refBig_us=32
+   55.953 cyl=1 seq=39 ev=REJECTED  val_us=2912 refBig_us=32
+   55.953 cyl=1 seq=40 ev=REJECTED  val_us=5824 refBig_us=32
+   55.953 cyl=1 seq=41 ev=REJECTED  val_us=5408 refBig_us=32
+   55.953 cyl=1 seq=42 ev=REJECTED  val_us=3808 refBig_us=32
+   55.953 cyl=1 seq=43 ev=IMPLAUS   val_us=8272 refBig_us=32
+   55.953 cyl=1 seq=44 ev=IMPLAUS   val_us=85104 refBig_us=32
+   55.953 cyl=1 seq=45 ev=IMPLAUS   val_us=8480 refBig_us=32
+   55.953 cyl=1 seq=46 ev=REJECTED  val_us=4400 refBig_us=32
+   55.953 cyl=1 seq=47 ev=IMPLAUS   val_us=8944 refBig_us=32
+   55.953 cyl=1 seq=48 ev=IMPLAUS   val_us=9600 refBig_us=32
+   55.953 cyl=1 seq=49 ev=REJECTED  val_us=2864 refBig_us=32
+   55.953 cyl=1 seq=50 ev=IMPLAUS   val_us=9296 refBig_us=32
+   55.953 cyl=1 seq=51 ev=REJECTED  val_us=5472 refBig_us=32
+   55.953 cyl=1 seq=52 ev=REJECTED  val_us=4352 refBig_us=32
+   55.953 cyl=1 seq=53 ev=IMPLAUS   val_us=6288 refBig_us=32
+   55.953 cyl=1 seq=54 ev=IMPLAUS   val_us=88016 refBig_us=32
+   55.953 cyl=1 seq=55 ev=REJECTED  val_us=1920 refBig_us=32
+   55.953 cyl=1 seq=56 ev=IMPLAUS   val_us=6368 refBig_us=32
+   55.953 cyl=1 seq=57 ev=IMPLAUS   val_us=13728 refBig_us=32
+   55.953 cyl=1 seq=58 ev=IMPLAUS   val_us=6560 refBig_us=32
+   55.953 cyl=1 seq=59 ev=REJECTED  val_us=1536 refBig_us=32
+   55.953 cyl=1 seq=60 ev=IMPLAUS   val_us=19072 refBig_us=32
+   55.953 cyl=1 seq=61 ev=IMPLAUS   val_us=14080 refBig_us=32
+   55.953 cyl=1 seq=62 ev=IMPLAUS   val_us=84736 refBig_us=32
+   55.953 cyl=1 seq=63 ev=REJECTED  val_us=3280 refBig_us=32
+   55.953 cyl=1 seq=65 missed=1 ev=REJECTED  val_us=3216 refBig_us=32
+   55.953 cyl=1 seq=66 ev=REJECTED  val_us=3920 refBig_us=32
+   55.953 cyl=1 seq=67 ev=IMPLAUS   val_us=9328 refBig_us=32
+   55.953 cyl=1 seq=68 ev=IMPLAUS   val_us=11264 refBig_us=32
+   55.953 cyl=1 seq=69 ev=REJECTED  val_us=1104 refBig_us=32
+   55.953 cyl=1 seq=71 missed=1 ev=REJECTED  val_us=816 refBig_us=32
+   55.953 cyl=1 seq=72 ev=REJECTED  val_us=5344 refBig_us=32
+   55.953 cyl=1 seq=73 ev=IMPLAUS   val_us=6944 refBig_us=32
+   55.953 cyl=1 seq=74 ev=REJECTED  val_us=4880 refBig_us=32
+   55.953 cyl=1 seq=75 ev=IMPLAUS   val_us=8576 refBig_us=32
+   55.953 cyl=1 seq=76 ev=IMPLAUS   val_us=85696 refBig_us=32
+   55.953 cyl=1 seq=77 ev=IMPLAUS   val_us=12384 refBig_us=32
+   55.953 cyl=1 seq=78 ev=IMPLAUS   val_us=93856 refBig_us=32
+   55.953 cyl=1 seq=79 ev=IMPLAUS   val_us=96640 refBig_us=32
+   55.953 cyl=1 seq=80 ev=SYNCCAND  val_us=105536 refBig_us=32
+   55.953 cyl=1 seq=81 ev=IMPLAUS   val_us=99536 refBig_us=32
+   58.953 WATCHDOG: STALL gap_us=3000016
+  412.141 cyl=1 seq=82 ev=REJECTED  val_us=356199888 refBig_us=32
+  415.125 WATCHDOG: STALL gap_us=3000012
+  484.281 cyl=1 seq=83 ev=REJECTED  val_us=72133920 refBig_us=32
+  486.281 cyl=1 seq=84 ev=REJECTED  val_us=1804896 refBig_us=32
+  486.281 cyl=1 seq=85 ev=IMPLAUS   val_us=56176 refBig_us=32
+  486.281 cyl=1 seq=86 ev=SYNCCAND  val_us=157040 refBig_us=32
+  487.344 cyl=1 seq=87 ev=SYNCCAND  val_us=1060912 refBig_us=32
+  490.219 cyl=1 seq=88 ev=REJECTED  val_us=2874144 refBig_us=32
+  493.219 WATCHDOG: STALL gap_us=3000012
+  614.906 cyl=1 seq=89 ev=REJECTED  val_us=123806768 refBig_us=32
+  614.906 cyl=1 seq=90 ev=REJECTED  val_us=752 refBig_us=32
+  614.906 cyl=1 seq=91 ev=IMPLAUS   val_us=22512 refBig_us=32
+  614.906 cyl=1 seq=93 missed=1 ev=REJECTED  val_us=464 refBig_us=32
+  614.906 cyl=1 seq=94 ev=REJECTED  val_us=5888 refBig_us=32
+  614.906 cyl=1 seq=99 missed=4 ev=REJECTED  val_us=160 refBig_us=32
+  614.906 cyl=1 seq=100 ev=REJECTED  val_us=1344 refBig_us=32
+  614.906 cyl=1 seq=101 ev=IMPLAUS   val_us=6112 refBig_us=32
+  614.906 cyl=1 seq=102 ev=IMPLAUS   val_us=18528 refBig_us=32
+  614.906 cyl=1 seq=104 missed=1 ev=REJECTED  val_us=1776 refBig_us=32
+  614.906 cyl=1 seq=105 ev=REJECTED  val_us=2960 refBig_us=32
+  614.906 cyl=1 seq=106 ev=IMPLAUS   val_us=61280 refBig_us=32
+  614.906 cyl=1 seq=107 ev=REJECTED  val_us=896 refBig_us=32
+  614.906 cyl=1 seq=108 ev=IMPLAUS   val_us=58240 refBig_us=32
+  614.906 cyl=1 seq=109 ev=IMPLAUS   val_us=8624 refBig_us=32
+  614.906 cyl=1 seq=110 ev=IMPLAUS   val_us=6112 refBig_us=32
+  614.906 cyl=1 seq=111 ev=IMPLAUS   val_us=9616 refBig_us=32
+  614.906 cyl=1 seq=112 ev=REJECTED  val_us=64 refBig_us=32
+  614.906 cyl=1 seq=113 ev=IMPLAUS   val_us=35472 refBig_us=32
+  614.906 cyl=1 seq=114 ev=REJECTED  val_us=4352 refBig_us=32
+  614.906 cyl=1 seq=115 ev=REJECTED  val_us=880 refBig_us=32
+  614.906 cyl=1 seq=116 ev=IMPLAUS   val_us=10160 refBig_us=32
+  614.906 cyl=1 seq=117 ev=IMPLAUS   val_us=12400 refBig_us=32
+  614.906 cyl=1 seq=118 ev=REJECTED  val_us=960 refBig_us=32
+  614.906 cyl=1 seq=119 ev=IMPLAUS   val_us=87264 refBig_us=32
+  614.906 cyl=1 seq=120 ev=REJECTED  val_us=3120 refBig_us=32
+  614.906 cyl=1 seq=121 ev=REJECTED  val_us=2608 refBig_us=32
+  614.906 cyl=1 seq=122 ev=IMPLAUS   val_us=9552 refBig_us=32
+  614.906 cyl=1 seq=123 ev=IMPLAUS   val_us=7408 refBig_us=32
+  614.906 cyl=1 seq=124 ev=IMPLAUS   val_us=12752 refBig_us=32
+  614.906 cyl=1 seq=125 ev=IMPLAUS   val_us=6416 refBig_us=32
+  614.906 cyl=1 seq=126 ev=REJECTED  val_us=2144 refBig_us=32
+  614.906 cyl=1 seq=127 ev=IMPLAUS   val_us=9584 refBig_us=32
+  614.906 cyl=1 seq=128 ev=IMPLAUS   val_us=85568 refBig_us=32
+  614.906 cyl=1 seq=129 ev=IMPLAUS   val_us=8896 refBig_us=32
+  614.906 cyl=1 seq=130 ev=REJECTED  val_us=3984 refBig_us=32
+  614.906 cyl=1 seq=131 ev=IMPLAUS   val_us=8976 refBig_us=32
+  614.906 cyl=1 seq=132 ev=IMPLAUS   val_us=7840 refBig_us=32
+  614.906 cyl=1 seq=133 ev=REJECTED  val_us=1280 refBig_us=32
+  614.906 cyl=1 seq=134 ev=IMPLAUS   val_us=9184 refBig_us=32
+  614.906 cyl=1 seq=135 ev=REJECTED  val_us=160 refBig_us=32
+  614.906 cyl=1 seq=136 ev=IMPLAUS   val_us=7888 refBig_us=32
+  614.906 cyl=1 seq=137 ev=REJECTED  val_us=2496 refBig_us=32
+  614.906 cyl=1 seq=138 ev=IMPLAUS   val_us=9120 refBig_us=32
+  614.906 cyl=1 seq=139 ev=IMPLAUS   val_us=84368 refBig_us=32
+  614.906 cyl=1 seq=140 ev=REJECTED  val_us=4768 refBig_us=32
+  614.906 cyl=1 seq=141 ev=REJECTED  val_us=5008 refBig_us=32
+  614.906 cyl=1 seq=142 ev=IMPLAUS   val_us=11888 refBig_us=32
+  614.906 cyl=1 seq=143 ev=IMPLAUS   val_us=8560 refBig_us=32
+  614.906 cyl=1 seq=144 ev=IMPLAUS   val_us=11184 refBig_us=32
+  614.906 cyl=1 seq=145 ev=IMPLAUS   val_us=6992 refBig_us=32
+  614.906 cyl=1 seq=146 ev=REJECTED  val_us=3664 refBig_us=32
+  614.906 cyl=1 seq=147 ev=IMPLAUS   val_us=7072 refBig_us=32
+  614.906 cyl=1 seq=148 ev=IMPLAUS   val_us=86144 refBig_us=32
+  614.906 cyl=1 seq=151 missed=2 ev=REJECTED  val_us=64 refBig_us=32
+  614.906 cyl=1 seq=153 missed=1 ev=REJECTED  val_us=752 refBig_us=32
+  614.906 cyl=1 seq=155 missed=1 ev=REJECTED  val_us=3088 refBig_us=32
+  614.906 cyl=1 seq=156 ev=IMPLAUS   val_us=9040 refBig_us=32
+  614.906 cyl=1 seq=157 ev=IMPLAUS   val_us=7888 refBig_us=32
+  614.906 cyl=1 seq=158 ev=REJECTED  val_us=928 refBig_us=32
+  614.906 cyl=1 seq=159 ev=IMPLAUS   val_us=6688 refBig_us=32
+  614.906 cyl=1 seq=160 ev=REJECTED  val_us=4704 refBig_us=32
+  614.906 cyl=1 seq=161 ev=IMPLAUS   val_us=6528 refBig_us=32
+  614.906 cyl=1 seq=162 ev=REJECTED  val_us=1904 refBig_us=32
+  614.906 cyl=1 seq=163 ev=IMPLAUS   val_us=8624 refBig_us=32
+  614.906 cyl=1 seq=164 ev=IMPLAUS   val_us=86784 refBig_us=32
+  614.906 cyl=1 seq=165 ev=IMPLAUS   val_us=7616 refBig_us=32
+  614.906 cyl=1 seq=166 ev=REJECTED  val_us=3424 refBig_us=32
+  614.906 cyl=1 seq=167 ev=IMPLAUS   val_us=10480 refBig_us=32
+  614.906 cyl=1 seq=168 ev=IMPLAUS   val_us=8496 refBig_us=32
+  614.906 cyl=1 seq=169 ev=IMPLAUS   val_us=12208 refBig_us=32
+  614.906 cyl=1 seq=170 ev=IMPLAUS   val_us=6192 refBig_us=32
+  614.906 cyl=1 seq=171 ev=IMPLAUS   val_us=12144 refBig_us=32
+  614.906 cyl=1 seq=172 ev=IMPLAUS   val_us=85184 refBig_us=32
+  614.906 cyl=1 seq=173 ev=REJECTED  val_us=3648 refBig_us=32
+  614.906 cyl=1 seq=174 ev=REJECTED  val_us=3552 refBig_us=32
+  615.985 cyl=1 seq=175 ev=REJECTED  val_us=3616 refBig_us=32
+  615.985 cyl=1 seq=176 ev=IMPLAUS   val_us=10960 refBig_us=32
+  615.985 cyl=1 seq=177 ev=IMPLAUS   val_us=8736 refBig_us=32
+  615.985 cyl=1 seq=178 ev=IMPLAUS   val_us=12400 refBig_us=32
+  615.985 cyl=1 seq=179 ev=REJECTED  val_us=5984 refBig_us=32
+  615.985 cyl=1 seq=180 ev=REJECTED  val_us=5136 refBig_us=32
+  615.985 cyl=1 seq=181 ev=REJECTED  val_us=5760 refBig_us=32
+  615.985 cyl=1 seq=182 ev=IMPLAUS   val_us=87664 refBig_us=32
+  615.985 cyl=1 seq=183 ev=IMPLAUS   val_us=8432 refBig_us=32
+  615.985 cyl=1 seq=184 ev=IMPLAUS   val_us=13360 refBig_us=32
+  615.985 cyl=1 seq=185 ev=IMPLAUS   val_us=8384 refBig_us=32
+  615.985 cyl=1 seq=186 ev=REJECTED  val_us=3408 refBig_us=32
+  615.985 cyl=1 seq=187 ev=REJECTED  val_us=4432 refBig_us=32
+  615.985 cyl=1 seq=188 ev=REJECTED  val_us=5552 refBig_us=32
+  615.985 cyl=1 seq=189 ev=REJECTED  val_us=5728 refBig_us=32
+  615.985 cyl=1 seq=190 ev=REJECTED  val_us=3872 refBig_us=32
+  615.985 cyl=1 seq=191 ev=IMPLAUS   val_us=9472 refBig_us=32
+  615.985 cyl=1 seq=192 ev=IMPLAUS   val_us=86304 refBig_us=32
+  615.985 cyl=1 seq=193 ev=IMPLAUS   val_us=7872 refBig_us=32
+  615.985 cyl=1 seq=194 ev=REJECTED  val_us=5120 refBig_us=32
+  615.985 cyl=1 seq=195 ev=IMPLAUS   val_us=9344 refBig_us=32
+  615.985 cyl=1 seq=196 ev=IMPLAUS   val_us=7568 refBig_us=32
+  615.985 cyl=1 seq=197 ev=REJECTED  val_us=1040 refBig_us=32
+  615.985 cyl=1 seq=199 missed=1 ev=REJECTED  val_us=944 refBig_us=32
+  615.985 cyl=1 seq=200 ev=IMPLAUS   val_us=11152 refBig_us=32
+  615.985 cyl=1 seq=201 ev=IMPLAUS   val_us=12112 refBig_us=32
+  615.985 cyl=1 seq=202 ev=IMPLAUS   val_us=87248 refBig_us=32
+  615.985 cyl=1 seq=203 ev=IMPLAUS   val_us=22032 refBig_us=32
+  615.985 cyl=1 seq=204 ev=IMPLAUS   val_us=8096 refBig_us=32
+  615.985 cyl=1 seq=208 missed=3 ev=REJECTED  val_us=288 refBig_us=32
+  615.985 cyl=1 seq=210 missed=1 ev=REJECTED  val_us=736 refBig_us=32
+  615.985 cyl=1 seq=211 ev=REJECTED  val_us=4672 refBig_us=32
+  615.985 cyl=1 seq=212 ev=IMPLAUS   val_us=6080 refBig_us=32
+  615.985 cyl=1 seq=213 ev=REJECTED  val_us=5904 refBig_us=32
+  615.985 cyl=1 seq=214 ev=IMPLAUS   val_us=7456 refBig_us=32
+  615.985 cyl=1 seq=215 ev=IMPLAUS   val_us=84272 refBig_us=32
+  615.985 cyl=1 seq=216 ev=REJECTED  val_us=3712 refBig_us=32
+  615.985 cyl=1 seq=218 missed=1 ev=REJECTED  val_us=3824 refBig_us=32
+  615.985 cyl=1 seq=219 ev=IMPLAUS   val_us=13120 refBig_us=32
+  615.985 cyl=1 seq=220 ev=IMPLAUS   val_us=8336 refBig_us=32
+  615.985 cyl=1 seq=223 missed=2 ev=REJECTED  val_us=2656 refBig_us=32
+  615.985 cyl=1 seq=227 missed=3 ev=REJECTED  val_us=816 refBig_us=32
+  615.985 cyl=1 seq=228 ev=REJECTED  val_us=5168 refBig_us=32
+  615.985 cyl=1 seq=229 ev=REJECTED  val_us=5184 refBig_us=32
+  615.985 cyl=1 seq=230 ev=REJECTED  val_us=3472 refBig_us=32
+  615.985 cyl=1 seq=231 ev=IMPLAUS   val_us=9248 refBig_us=32
+  615.985 cyl=1 seq=232 ev=IMPLAUS   val_us=85136 refBig_us=32
+  615.985 cyl=1 seq=233 ev=IMPLAUS   val_us=7888 refBig_us=32
+  615.985 cyl=1 seq=234 ev=REJECTED  val_us=1408 refBig_us=32
+  615.985 cyl=1 seq=235 ev=IMPLAUS   val_us=12288 refBig_us=32
+  615.985 cyl=1 seq=236 ev=IMPLAUS   val_us=8976 refBig_us=32
+  615.985 cyl=1 seq=238 missed=1 ev=REJECTED  val_us=160 refBig_us=32
+  615.985 cyl=1 seq=239 ev=IMPLAUS   val_us=6160 refBig_us=32
+  615.985 cyl=1 seq=240 ev=REJECTED  val_us=5616 refBig_us=32
+  615.985 cyl=1 seq=241 ev=REJECTED  val_us=5936 refBig_us=32
+  615.985 cyl=1 seq=242 ev=REJECTED  val_us=2624 refBig_us=32
+  615.985 cyl=1 seq=243 ev=IMPLAUS   val_us=9984 refBig_us=32
+  615.985 cyl=1 seq=244 ev=IMPLAUS   val_us=86752 refBig_us=32
+  615.985 cyl=1 seq=246 missed=1 ev=REJECTED  val_us=624 refBig_us=32
+  615.985 cyl=1 seq=250 missed=3 ev=REJECTED  val_us=1216 refBig_us=32
+  615.985 cyl=1 seq=251 ev=REJECTED  val_us=3632 refBig_us=32
+  615.985 cyl=1 seq=252 ev=IMPLAUS   val_us=9552 refBig_us=32
+  615.985 cyl=1 seq=253 ev=IMPLAUS   val_us=8256 refBig_us=32
+  615.985 cyl=1 seq=3 missed=5 ev=REJECTED  val_us=928 refBig_us=32
+  615.985 cyl=1 seq=4 ev=IMPLAUS   val_us=9040 refBig_us=32
+  615.985 cyl=1 seq=5 ev=REJECTED  val_us=5728 refBig_us=32
+  615.985 cyl=1 seq=6 ev=REJECTED  val_us=3488 refBig_us=32
+  615.985 cyl=1 seq=7 ev=IMPLAUS   val_us=8448 refBig_us=32
+  615.985 cyl=1 seq=8 ev=IMPLAUS   val_us=87248 refBig_us=32
+  615.985 cyl=1 seq=9 ev=IMPLAUS   val_us=8016 refBig_us=32
+  615.985 cyl=1 seq=10 ev=REJECTED  val_us=3472 refBig_us=32
+  615.985 cyl=1 seq=11 ev=IMPLAUS   val_us=10448 refBig_us=32
+  615.985 cyl=1 seq=12 ev=IMPLAUS   val_us=9232 refBig_us=32
+  615.985 cyl=1 seq=13 ev=IMPLAUS   val_us=12032 refBig_us=32
+  615.985 cyl=1 seq=14 ev=REJECTED  val_us=5792 refBig_us=32
+  617.156 cyl=1 seq=15 ev=REJECTED  val_us=3456 refBig_us=32
+  617.156 cyl=1 seq=16 ev=IMPLAUS   val_us=8448 refBig_us=32
+  617.156 cyl=1 seq=17 ev=IMPLAUS   val_us=87104 refBig_us=32
+  617.156 cyl=1 seq=18 ev=IMPLAUS   val_us=6688 refBig_us=32
+  617.156 cyl=1 seq=19 ev=IMPLAUS   val_us=15024 refBig_us=32
+  617.156 cyl=1 seq=20 ev=IMPLAUS   val_us=8192 refBig_us=32
+  617.156 cyl=1 seq=21 ev=REJECTED  val_us=784 refBig_us=32
+  617.156 cyl=1 seq=23 missed=1 ev=REJECTED  val_us=3136 refBig_us=32
+  617.156 cyl=1 seq=24 ev=REJECTED  val_us=5008 refBig_us=32
+  617.156 cyl=1 seq=25 ev=REJECTED  val_us=5856 refBig_us=32
+  617.156 cyl=1 seq=26 ev=REJECTED  val_us=3840 refBig_us=32
+  617.156 cyl=1 seq=27 ev=IMPLAUS   val_us=6944 refBig_us=32
+  617.156 cyl=1 seq=28 ev=IMPLAUS   val_us=88576 refBig_us=32
+  617.156 cyl=1 seq=29 ev=IMPLAUS   val_us=7536 refBig_us=32
+  617.156 cyl=1 seq=30 ev=IMPLAUS   val_us=14880 refBig_us=32
+  617.156 cyl=1 seq=31 ev=IMPLAUS   val_us=7632 refBig_us=32
+  617.156 cyl=1 seq=35 missed=3 ev=REJECTED  val_us=160 refBig_us=32
+  617.156 cyl=1 seq=36 ev=REJECTED  val_us=1008 refBig_us=32
+  617.156 cyl=1 seq=37 ev=IMPLAUS   val_us=8800 refBig_us=32
+  617.156 cyl=1 seq=38 ev=REJECTED  val_us=5936 refBig_us=32
+  617.156 cyl=1 seq=39 ev=REJECTED  val_us=3792 refBig_us=32
+  617.156 cyl=1 seq=40 ev=IMPLAUS   val_us=9968 refBig_us=32
+  617.156 cyl=1 seq=41 ev=IMPLAUS   val_us=86448 refBig_us=32
+  617.156 cyl=1 seq=42 ev=REJECTED  val_us=5136 refBig_us=32
+  617.156 cyl=1 seq=43 ev=REJECTED  val_us=3120 refBig_us=32
+  617.156 cyl=1 seq=44 ev=IMPLAUS   val_us=13872 refBig_us=32
+  617.156 cyl=1 seq=45 ev=IMPLAUS   val_us=7920 refBig_us=32
+  617.156 cyl=1 seq=46 ev=IMPLAUS   val_us=12064 refBig_us=32
+  617.156 cyl=1 seq=47 ev=IMPLAUS   val_us=6880 refBig_us=32
+  617.156 cyl=1 seq=48 ev=IMPLAUS   val_us=12848 refBig_us=32
+  617.156 cyl=1 seq=49 ev=IMPLAUS   val_us=86256 refBig_us=32
+  617.156 cyl=1 seq=50 ev=IMPLAUS   val_us=9120 refBig_us=32
+  617.156 cyl=1 seq=51 ev=REJECTED  val_us=4240 refBig_us=32
+  617.156 cyl=1 seq=52 ev=IMPLAUS   val_us=8928 refBig_us=32
+  617.156 cyl=1 seq=53 ev=IMPLAUS   val_us=7552 refBig_us=32
+  617.156 cyl=1 seq=58 missed=4 ev=REJECTED  val_us=2288 refBig_us=32
+  617.156 cyl=1 seq=60 missed=1 ev=REJECTED  val_us=144 refBig_us=32
+  617.156 cyl=1 seq=61 ev=IMPLAUS   val_us=8416 refBig_us=32
+  617.156 cyl=1 seq=62 ev=IMPLAUS   val_us=6336 refBig_us=32
+  617.156 cyl=1 seq=63 ev=REJECTED  val_us=2464 refBig_us=32
+  617.156 cyl=1 seq=64 ev=IMPLAUS   val_us=8688 refBig_us=32
+  617.156 cyl=1 seq=65 ev=IMPLAUS   val_us=87936 refBig_us=32
+  617.156 cyl=1 seq=66 ev=IMPLAUS   val_us=9264 refBig_us=32
+  617.156 cyl=1 seq=67 ev=REJECTED  val_us=3840 refBig_us=32
+  617.156 cyl=1 seq=68 ev=IMPLAUS   val_us=8960 refBig_us=32
+  617.156 cyl=1 seq=69 ev=IMPLAUS   val_us=8480 refBig_us=32
+  617.156 cyl=1 seq=70 ev=IMPLAUS   val_us=9728 refBig_us=32
+  617.156 cyl=1 seq=72 missed=1 ev=REJECTED  val_us=736 refBig_us=32
+  617.156 cyl=1 seq=73 ev=IMPLAUS   val_us=6736 refBig_us=32
+  617.156 cyl=1 seq=74 ev=IMPLAUS   val_us=13152 refBig_us=32
+  617.156 cyl=1 seq=75 ev=IMPLAUS   val_us=85552 refBig_us=32
+  617.156 cyl=1 seq=76 ev=REJECTED  val_us=1920 refBig_us=32
+  617.156 cyl=1 seq=77 ev=REJECTED  val_us=5264 refBig_us=32
+  617.156 cyl=1 seq=78 ev=IMPLAUS   val_us=15312 refBig_us=32
+  617.156 cyl=1 seq=79 ev=IMPLAUS   val_us=7728 refBig_us=32
+  617.156 cyl=1 seq=82 missed=2 ev=REJECTED  val_us=2784 refBig_us=32
+  617.156 cyl=1 seq=84 missed=1 ev=REJECTED  val_us=3552 refBig_us=32
+  617.156 cyl=1 seq=86 missed=1 ev=REJECTED  val_us=624 refBig_us=32
+  617.156 cyl=1 seq=87 ev=REJECTED  val_us=5952 refBig_us=32
+  617.156 cyl=1 seq=88 ev=REJECTED  val_us=2368 refBig_us=32
+  617.156 cyl=1 seq=89 ev=IMPLAUS   val_us=10976 refBig_us=32
+  617.156 cyl=1 seq=90 ev=IMPLAUS   val_us=86240 refBig_us=32
+  617.156 cyl=1 seq=92 missed=1 ev=REJECTED  val_us=1152 refBig_us=32
+  617.156 cyl=1 seq=93 ev=REJECTED  val_us=5888 refBig_us=32
+  617.156 cyl=1 seq=94 ev=IMPLAUS   val_us=13728 refBig_us=32
+  617.156 cyl=1 seq=95 ev=IMPLAUS   val_us=8608 refBig_us=32
+  617.156 cyl=1 seq=96 ev=IMPLAUS   val_us=12608 refBig_us=32
+  617.156 cyl=1 seq=97 ev=REJECTED  val_us=3456 refBig_us=32
+  617.156 cyl=1 seq=98 ev=REJECTED  val_us=2560 refBig_us=32
+  617.156 cyl=1 seq=99 ev=REJECTED  val_us=3920 refBig_us=32
+  617.156 cyl=1 seq=100 ev=IMPLAUS   val_us=9008 refBig_us=32
+  617.156 cyl=1 seq=101 ev=IMPLAUS   val_us=87008 refBig_us=32
+  617.156 cyl=1 seq=102 ev=IMPLAUS   val_us=8464 refBig_us=32
+  617.156 cyl=1 seq=103 ev=REJECTED  val_us=4688 refBig_us=32
+  617.156 cyl=1 seq=104 ev=IMPLAUS   val_us=9072 refBig_us=32
+  617.156 cyl=1 seq=105 ev=IMPLAUS   val_us=8800 refBig_us=32
+  617.156 cyl=1 seq=107 missed=1 ev=REJECTED  val_us=256 refBig_us=32
+  618.844 cyl=1 seq=108 ev=IMPLAUS   val_us=8144 refBig_us=32
+  618.844 cyl=1 seq=109 ev=IMPLAUS   val_us=6160 refBig_us=32
+  618.844 cyl=1 seq=110 ev=IMPLAUS   val_us=14176 refBig_us=32
+  618.844 cyl=1 seq=111 ev=IMPLAUS   val_us=84400 refBig_us=32
+  618.844 cyl=1 seq=112 ev=IMPLAUS   val_us=21808 refBig_us=32
+  618.844 cyl=1 seq=113 ev=IMPLAUS   val_us=8672 refBig_us=32
+  618.844 cyl=1 seq=114 ev=IMPLAUS   val_us=12768 refBig_us=32
+  618.844 cyl=1 seq=115 ev=REJECTED  val_us=5632 refBig_us=32
+  618.844 cyl=1 seq=116 ev=REJECTED  val_us=3984 refBig_us=32
+  618.844 cyl=1 seq=117 ev=IMPLAUS   val_us=10256 refBig_us=32
+  618.844 cyl=1 seq=118 ev=IMPLAUS   val_us=84256 refBig_us=32
+  618.844 cyl=1 seq=119 ev=REJECTED  val_us=2368 refBig_us=32
+  618.844 cyl=1 seq=120 ev=IMPLAUS   val_us=6656 refBig_us=32
+  618.844 cyl=1 seq=121 ev=REJECTED  val_us=4048 refBig_us=32
+  618.844 cyl=1 seq=122 ev=IMPLAUS   val_us=9072 refBig_us=32
+  618.844 cyl=1 seq=123 ev=IMPLAUS   val_us=8208 refBig_us=32
+  618.844 cyl=1 seq=128 missed=4 ev=REJECTED  val_us=352 refBig_us=32
+  618.844 cyl=1 seq=129 ev=REJECTED  val_us=2912 refBig_us=32
+  618.844 cyl=1 seq=130 ev=IMPLAUS   val_us=9280 refBig_us=32
+  618.844 cyl=1 seq=131 ev=REJECTED  val_us=3472 refBig_us=32
+  618.844 cyl=1 seq=132 ev=IMPLAUS   val_us=10848 refBig_us=32
+  618.844 cyl=1 seq=133 ev=IMPLAUS   val_us=88560 refBig_us=32
+  618.844 cyl=1 seq=134 ev=REJECTED  val_us=2512 refBig_us=32
+  618.844 cyl=1 seq=139 missed=4 ev=REJECTED  val_us=384 refBig_us=32
+  618.844 cyl=1 seq=140 ev=REJECTED  val_us=3984 refBig_us=32
+  618.844 cyl=1 seq=141 ev=IMPLAUS   val_us=9536 refBig_us=32
+  618.844 cyl=1 seq=142 ev=IMPLAUS   val_us=7920 refBig_us=32
+  618.844 cyl=1 seq=147 missed=4 ev=REJECTED  val_us=976 refBig_us=32
+  618.844 cyl=1 seq=148 ev=REJECTED  val_us=80 refBig_us=32
+  618.844 cyl=1 seq=149 ev=IMPLAUS   val_us=9008 refBig_us=32
+  618.844 cyl=1 seq=150 ev=REJECTED  val_us=5792 refBig_us=32
+  618.844 cyl=1 seq=151 ev=IMPLAUS   val_us=15216 refBig_us=32
+  618.844 cyl=1 seq=152 ev=IMPLAUS   val_us=88288 refBig_us=32
+  618.844 cyl=1 seq=153 ev=REJECTED  val_us=2864 refBig_us=32
+  618.844 cyl=1 seq=155 missed=1 ev=REJECTED  val_us=3408 refBig_us=32
+  618.844 cyl=1 seq=156 ev=IMPLAUS   val_us=8960 refBig_us=32
+  618.844 cyl=1 seq=157 ev=IMPLAUS   val_us=9536 refBig_us=32
+  618.844 cyl=1 seq=158 ev=REJECTED  val_us=3248 refBig_us=32
+  618.844 cyl=1 seq=159 ev=REJECTED  val_us=3056 refBig_us=32
+  618.844 cyl=1 seq=160 ev=IMPLAUS   val_us=11232 refBig_us=32
+  618.844 cyl=1 seq=161 ev=REJECTED  val_us=2656 refBig_us=32
+  618.844 cyl=1 seq=162 ev=REJECTED  val_us=2928 refBig_us=32
+  618.844 cyl=1 seq=163 ev=IMPLAUS   val_us=7168 refBig_us=32
+  618.844 cyl=1 seq=164 ev=IMPLAUS   val_us=85408 refBig_us=32
+  618.844 cyl=1 seq=165 ev=REJECTED  val_us=2448 refBig_us=32
+  618.844 cyl=1 seq=166 ev=REJECTED  val_us=4656 refBig_us=32
+  618.844 cyl=1 seq=168 missed=1 ev=REJECTED  val_us=3744 refBig_us=32
+  618.844 cyl=1 seq=169 ev=IMPLAUS   val_us=8992 refBig_us=32
+  618.844 cyl=1 seq=170 ev=IMPLAUS   val_us=8816 refBig_us=32
+  618.844 cyl=1 seq=171 ev=IMPLAUS   val_us=18192 refBig_us=32
+  618.844 cyl=1 seq=172 ev=REJECTED  val_us=3440 refBig_us=32
+  618.844 cyl=1 seq=173 ev=IMPLAUS   val_us=7408 refBig_us=32
+  618.844 cyl=1 seq=174 ev=IMPLAUS   val_us=88080 refBig_us=32
+  618.844 cyl=1 seq=175 ev=IMPLAUS   val_us=8160 refBig_us=32
+  618.844 cyl=1 seq=176 ev=IMPLAUS   val_us=13888 refBig_us=32
+  618.844 cyl=1 seq=177 ev=IMPLAUS   val_us=8976 refBig_us=32
+  618.844 cyl=1 seq=178 ev=IMPLAUS   val_us=11952 refBig_us=32
+  618.844 cyl=1 seq=179 ev=IMPLAUS   val_us=6096 refBig_us=32
+  618.844 cyl=1 seq=180 ev=REJECTED  val_us=5008 refBig_us=32
+  618.844 cyl=1 seq=181 ev=IMPLAUS   val_us=6944 refBig_us=32
+  618.844 cyl=1 seq=182 ev=IMPLAUS   val_us=88336 refBig_us=32
+  618.844 cyl=1 seq=183 ev=IMPLAUS   val_us=8720 refBig_us=32
+  618.844 cyl=1 seq=184 ev=REJECTED  val_us=4400 refBig_us=32
+  618.844 cyl=1 seq=185 ev=IMPLAUS   val_us=9936 refBig_us=32
+  618.844 cyl=1 seq=186 ev=IMPLAUS   val_us=15872 refBig_us=32
+  618.844 cyl=1 seq=187 ev=IMPLAUS   val_us=13584 refBig_us=32
+  618.844 cyl=1 seq=188 ev=IMPLAUS   val_us=16112 refBig_us=32
+  618.844 cyl=1 seq=189 ev=IMPLAUS   val_us=14288 refBig_us=32
+  618.844 cyl=1 seq=190 ev=IMPLAUS   val_us=93392 refBig_us=32
+  618.844 cyl=1 seq=191 ev=IMPLAUS   val_us=92704 refBig_us=32
+  618.844 cyl=1 seq=192 ev=SYNCCAND  val_us=102080 refBig_us=32
+  618.844 cyl=1 seq=193 ev=SYNCFIRST val_us=101760 refBig_us=32
+  621.844 WATCHDOG: STALL gap_us=3000012

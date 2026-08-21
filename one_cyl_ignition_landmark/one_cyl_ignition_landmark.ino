@@ -135,6 +135,26 @@ void wdt_early_disable(void){
 #define HALFLOCK_STREAK      4        // consecutive n==2 landmarks before doubling
 #define REFBIG_DECAY_SHIFT   6        // refBig -= refBig>>6 on a non-peak edge
 
+/* refBig floor -- FIXES A HARD DECODER LOCKUP found 2026-08-20 (stock-CDI EMI test).
+ *
+ * A long burst of noise edges decays refBig by 1/64 per non-peak edge. Once it fell
+ * below 4 ticks BOTH shifts truncated to zero: the rise path computed
+ * capped = refBig + (refBig>>2) = refBig, so refBig could never grow again, and the
+ * decay path subtracted refBig>>6 = 0, so it could never shrink either. refBig froze
+ * at 2 ticks (32us) permanently -- the channel was bricked until reset. With refBig=2
+ * the landmark test degenerates to interval > 1.4 ticks, so EVERY edge classifies as a
+ * landmark, which is exactly the 349 IMPLAUS / 242 REJECTED / 0 FIRED flood in
+ * bench_logs/cdi_efi_COM13_2026-08-20_20.21.58.txt -- while the real ~90-102ms
+ * landmarks were still plainly present in the same log.
+ *
+ * The floor is physically justified, not just arithmetic: refBig tracks the landmark
+ * span, which is a fraction of a revolution, so it can never legitimately fall below
+ * half the shortest plausible revolution. Flooring here also stops a noise burst from
+ * dragging the threshold down into the range where noise itself qualifies as a
+ * landmark. refBig==0 is still the uninitialised sentinel -- the decay branch is
+ * guarded so it is never touched before first acquisition. */
+#define REFBIG_MIN_TICKS     (PERIOD_MIN_TICKS >> 1)   // ~3000us; >>2 and >>6 both stay non-zero
+
 /* ---- cold-acquisition plausibility guard ----
  * After a genuine STALL (STALL_US with no edges, so the engine really stopped), the
  * next lock can only be at CRANKING speed — a starter physically cannot spin this
@@ -350,11 +370,15 @@ ISR(TIMER5_CAPT_vect){
   bool isLandmark = (refBig > 0) && (interval * LM_NUM > refBig * LM_DEN);
   if (interval > refBig){
     if (interval < PERIOD_MAX_TICKS){
-      uint32_t capped = refBig + (refBig >> 2);
+      uint32_t rise = refBig >> 2;
+      if (rise == 0) rise = 1;          // see REFBIG_MIN_TICKS: >>2 truncates to 0 for
+      uint32_t capped = refBig + rise;  // refBig<4, which froze the rise path entirely
       refBig = (refBig == 0 || interval < capped) ? interval : capped;
     }
-  } else {
-    refBig -= (refBig >> REFBIG_DECAY_SHIFT);
+  } else if (refBig > REFBIG_MIN_TICKS){
+    uint32_t dec = refBig >> REFBIG_DECAY_SHIFT;
+    if (dec == 0) dec = 1;              // likewise >>6 truncates to 0 for refBig<64
+    refBig = (refBig - dec > REFBIG_MIN_TICKS) ? (refBig - dec) : REFBIG_MIN_TICKS;
   }
   if (!isLandmark){
     dbgEvent=DBG_SKIP; dbgVal=interval; dbgRefBig=refBig; dbgSeq++;

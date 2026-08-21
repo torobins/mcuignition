@@ -397,3 +397,4 @@
   307.921 cyl=2 seq=140 ev=FIRED     val_us=163616 refBig_us=125472 period_us=171040 rpm=350 resid_us=-7664 edgeToSpark_us=154400
   307.921 cyl=2 seq=141 ev=SKIP      val_us=39264 refBig_us=123520
   310.921 WATCHDOG: STALL gap_us=3000016
+# READ ERROR: GetOverlappedResult failed (PermissionError(13, 'Access is denied.', None, 5))
