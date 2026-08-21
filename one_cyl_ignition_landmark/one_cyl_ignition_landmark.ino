@@ -273,6 +273,28 @@ void wdt_early_disable(void){
                                      // be comfortably detectable. 500us stays <25% duty
                                      // even at the PERIOD_MIN_TICKS rpm ceiling.
 
+/* ---- EFI liveness gate -- added 2026-08-20 after a live-engine finding ----
+ * Free-running is what stops raw-edge jitter reaching Speeduino, but it also means the
+ * train has NO idea whether the engine is still turning. When the engine stopped, the
+ * train kept emitting at its last spacing until the 3-second STALL watchdog: Speeduino
+ * read a PHANTOM rock-steady rpm and KEPT INJECTING FUEL into a dead engine for ~3s.
+ *
+ * Caught by comparing the two logs over the same moment -- Speeduino pinned at
+ * 2182-2183 +/-1 while the board's own model showed 2015-2176 wandering, with the last
+ * real landmark 3s before the stall. A real unloaded 2-stroke wanders; pinned-to-1-rpm
+ * is a clock, not an engine.
+ *
+ * So: stop the train once no MODEL landmark has arrived for EFI_LIVENESS_REVS model
+ * revolutions. Scaling with the model period is what makes this safe at any speed -- a
+ * fixed timeout would either be too slow at idle or fire spuriously while cranking. The
+ * absolute cap bounds the worst case if phasePeriod is large or wrong; 500ms is two
+ * revolutions at 240rpm, comfortably below any real cranking speed (~400rpm).
+ *
+ * Re-arming is automatic and needs no extra state: efiTrainRunning==false is already the
+ * arm condition on the next locked landmark. */
+#define EFI_LIVENESS_REVS   2UL      // model revolutions of silence before the train stops
+#define EFI_LIVENESS_MAX_US 500000UL // absolute ceiling on that timeout
+
 /* ---- cylinder ID jumpers (D10 = PB4, D11 = PB5) ----
  * Identifies which cylinder this board serves, WITHOUT breaking the byte-identical
  * firmware property: all three boards run the same image and read their identity from
@@ -326,6 +348,7 @@ volatile uint32_t strobeHighMicros = 0;      // when it was lit, to time its wid
 volatile bool     efiTrainRunning    = false; // free-running once the model has locked
 volatile uint32_t efiNextPulseMicros = 0;   // when the next one is due
 volatile uint32_t efiPulseSpacingUs  = 0;   // model rev period / EFI_PULSES_PER_REV
+volatile uint32_t efiLastLandmarkMicros = 0; // last MODEL landmark, for the liveness gate
 /* These two are touched ONLY by loop(), so they need no volatile/atomic guard. */
 bool     efiPulseActive     = false;        // EFI pin currently HIGH
 uint32_t efiPulseHighMicros = 0;            // when it went HIGH, to time its width
@@ -462,6 +485,7 @@ ISR(TIMER5_CAPT_vect){
   // efiNextPulseMicros to this edge -- that is what injected raw-edge jitter in v1.
   // The train is started once, on the first locked landmark, and free-runs thereafter.
   efiPulseSpacingUs = (phasePeriod * US_PER_TICK) / EFI_PULSES_PER_REV;
+  efiLastLandmarkMicros = micros();      // liveness: proof the engine is still turning
   if (!efiTrainRunning){
     efiNextPulseMicros = micros();
     efiTrainRunning    = true;
@@ -640,6 +664,32 @@ void loop(){
   if (efiPulseActive && (int32_t)(now - efiPulseHighMicros) > (int32_t)EFI_PULSE_US){
     EFI_LOW();
     efiPulseActive = false;
+  }
+
+  // EFI liveness gate (see EFI_LIVENESS_REVS): the train free-runs, so without this it
+  // keeps feeding Speeduino a perfectly steady pulse train after the engine has stopped
+  // -- a phantom rpm, and fuel injected into a dead engine, until the 3s STALL watchdog.
+  {
+    bool     trainRunning;
+    uint32_t lastLm, periodTicks;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
+      trainRunning = efiTrainRunning;
+      lastLm       = efiLastLandmarkMicros;
+      periodTicks  = phasePeriod;
+    }
+    if (trainRunning){
+      uint32_t limitUs = periodTicks * US_PER_TICK * EFI_LIVENESS_REVS;
+      if (limitUs > EFI_LIVENESS_MAX_US) limitUs = EFI_LIVENESS_MAX_US;
+      if ((int32_t)(now - lastLm) > (int32_t)limitUs){
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE){ efiTrainRunning = false; }
+        EFI_LOW();                     // never strand the pin HIGH mid-pulse
+        efiPulseActive = false;
+        if (Serial.availableForWrite() >= (SERIAL_TX_BUFFER_SIZE - 1)){
+          Serial.print(F("EFI: train stopped, no landmark for us="));
+          Serial.println((int32_t)(now - lastLm));
+        }
+      }
+    }
   }
 
   bool charging; uint32_t highAt;
