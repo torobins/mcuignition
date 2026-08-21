@@ -42,6 +42,22 @@ sparking beside the tap:
 This likely also explains historic "channel goes bad and stays bad" behaviour — any long enough
 noise burst could permanently disable a channel.
 
+### DECISION (2026-08-20): stay on the stock CDI, sort the fuel out first
+
+Custom MCU ignition is **deferred, not abandoned**. Known-good spark means anything that
+misbehaves from here is unambiguously fuel.
+
+Consequences:
+
+- Only **one** MCU board is needed for now - trigger only, D9 -> Speeduino.
+- The **carrier board is not urgent** (`hardware/carrier_board.md` is complete and reviewed
+  whenever it is wanted).
+- The **"10k on all three channels" experiment is deferred** with it - but do it *before*
+  building the carrier board, since it may show the board was never the blocker.
+
+Fuel priorities: bracket VE upward from 30 (next try: **40**), chase the unexplained ~2.3x PW
+factor, work out the ~2100rpm closed-throttle fast idle, keep injector duty under 85%.
+
 ### Current architecture (interim)
 
 - **Spark: stock Yamaha CDI**, stock config, stock coils. Proven, correct timing, no kickback.
