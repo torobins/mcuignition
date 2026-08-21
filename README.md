@@ -55,8 +55,33 @@ Consequences:
 - The **"10k on all three channels" experiment is deferred** with it - but do it *before*
   building the carrier board, since it may show the board was never the blocker.
 
-Fuel priorities: bracket VE upward from 30 (next try: **40**), chase the unexplained ~2.3x PW
-factor, work out the ~2100rpm closed-throttle fast idle, keep injector duty under 85%.
+**NEXT SESSION — likely cause of the ~2.3x PW factor found: injection type was set to
+THROTTLE BODY, but there is one injector per cylinder, i.e. PORT INJECTION.** In Throttle Body
+mode Speeduino assumes the injectors are shared between cylinders and scales fuel up
+accordingly - which is exactly the multiplier that turned a computed 14.7ms into the observed
+33.5ms. It also explains the duty problem: the injectors were being asked to deliver several
+cylinders' worth each.
+
+Plan: set **Injection Type = Port Injection** and **VE back to 80** together (a compensating
+pair, not two independent changes - it holds delivered fuel roughly constant while fixing the
+underlying constant). At VE 30 / Throttle Body the engine ran at PW 14.4ms; VE 80 / Port lands
+between ~13ms and ~19ms depending on the true factor, all workable.
+
+**Read PW on the first crank - that single number gives the factor.** After that VE means real
+volumetric efficiency again, tuning intuition applies, and the full table range is available
+instead of being compressed into the bottom third.
+
+Verify first that all three injectors are on separate Speeduino outputs (INJ1/2/3) - Port
+Injection uses three outputs.
+
+Leave **Injector Layout** alone for that test (one change at a time). It is a separate
+question: "Sequential" is timed over the *full cycle* while "Paired" is timed over *1 crank
+revolution* - and on a two-stroke the full cycle IS one revolution, so Sequential carries a
+4-stroke doubling that does not apply here. Sequential also needs a cam/phase reference, which
+a Basic Distributor crank trigger does not provide.
+
+Remaining fuel items: the ~2100rpm closed-throttle fast idle, and keeping injector duty under
+85% (the Injector Duty Limit is set to 85% but logged 108%, so it does not clamp).
 
 ### Current architecture (interim)
 
